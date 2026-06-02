@@ -17,6 +17,22 @@ inject_global_styles()
 
 st.title("📝 我的错题与笔记")
 
+# 页面介绍
+st.markdown("""
+<div style="background: linear-gradient(135deg, rgba(245,158,11,0.1), rgba(239,68,68,0.1));
+            border: 1px solid rgba(245,158,11,0.2); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem;">
+    <div style="font-size: 1.1rem; font-weight: 700; color: #e2e8f0; margin-bottom: 0.8rem;">
+        📝 错题复习，查漏补缺
+    </div>
+    <div style="color: #94a3b8; font-size: 0.9rem; line-height: 1.6;">
+        <p>📌 <strong>错题收藏</strong>：收藏做错的题目，建立个人错题本</p>
+        <p>⭐ <strong>掌握度评分</strong>：为每道题设置掌握程度，重点攻克薄弱点</p>
+        <p>📊 <strong>智能筛选</strong>：按日期、知识点、掌握度筛选，高效复习</p>
+        <p>✏️ <strong>笔记功能</strong>：添加个人笔记，记录学习心得</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
 # ==========================================
 # 加载数据
 # ==========================================

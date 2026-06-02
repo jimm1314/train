@@ -21,6 +21,23 @@ init_session_state()
 inject_global_styles()
 
 st.title("✍️ 默写模式")
+
+# 页面介绍
+st.markdown("""
+<div style="background: linear-gradient(135deg, rgba(168,85,247,0.1), rgba(236,72,153,0.1));
+            border: 1px solid rgba(168,85,247,0.2); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem;">
+    <div style="font-size: 1.1rem; font-weight: 700; color: #e2e8f0; margin-bottom: 0.8rem;">
+        ✍️ 默写练习，强化记忆
+    </div>
+    <div style="color: #94a3b8; font-size: 0.9rem; line-height: 1.6;">
+        <p>🧠 <strong>主动回忆</strong>：先凭记忆默写，再对照答案，加深理解</p>
+        <p>📝 <strong>自动保存</strong>：所有默写内容自动保存，方便回顾对比</p>
+        <p>📊 <strong>历史记录</strong>：查看历史默写记录，追踪学习进步</p>
+        <p>📥 <strong>导出功能</strong>：支持导出默写记录，便于整理复习</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
 st.markdown("看到题目后**先凭记忆默写**，再对照参考答案查漏补缺。所有默写内容自动保存！")
 
 # 默写记录文件（动态获取当前用户路径）

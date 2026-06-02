@@ -20,6 +20,22 @@ inject_global_styles()
 
 st.title("📖 沉浸式背题模式")
 
+# 页面介绍
+st.markdown("""
+<div style="background: linear-gradient(135deg, rgba(16,185,129,0.1), rgba(6,182,212,0.1));
+            border: 1px solid rgba(16,185,129,0.2); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem;">
+    <div style="font-size: 1.1rem; font-weight: 700; color: #e2e8f0; margin-bottom: 0.8rem;">
+        📖 沉浸式背题，系统学习
+    </div>
+    <div style="color: #94a3b8; font-size: 0.9rem; line-height: 1.6;">
+        <p>📚 <strong>系统浏览</strong>：分页浏览所有题目，全面掌握知识点</p>
+        <p>🔍 <strong>智能搜索</strong>：支持关键词搜索，快速定位目标题目</p>
+        <p>📌 <strong>收藏功能</strong>：一键收藏难题到错题本，方便复习</p>
+        <p>📊 <strong>进度追踪</strong>：实时显示浏览进度，掌控学习节奏</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
 # ==========================================
 # 侧边栏设置
 # ==========================================

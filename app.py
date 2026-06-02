@@ -8,7 +8,7 @@ from utils.session_state import init_session_state
 from utils.styles import inject_global_styles
 from utils.data_loader import get_filtered_questions
 from utils.review_manager import _read_review_file, load_study_log, get_checkin_stats
-from utils.auth import check_auth, get_current_user, is_admin, logout
+from utils.auth import get_current_user, is_admin, logout
 from components.metrics import render_overview_cards
 
 # ==========================================
@@ -22,9 +22,13 @@ st.set_page_config(
 )
 
 # 初始化
-check_auth()
 init_session_state()
 inject_global_styles()
+
+# 检查登录状态，未登录则跳转到登录页面
+from utils.auth import is_authenticated
+if not is_authenticated():
+    st.switch_page("pages/0_🔐_登录注册.py")
 
 # ==========================================
 # 侧边栏

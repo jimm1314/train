@@ -21,6 +21,22 @@ inject_global_styles()
 
 st.title("🎲 抽题模式")
 
+# 页面介绍
+st.markdown("""
+<div style="background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(236,72,153,0.1));
+            border: 1px solid rgba(99,102,241,0.2); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem;">
+    <div style="font-size: 1.1rem; font-weight: 700; color: #e2e8f0; margin-bottom: 0.8rem;">
+        🎯 随机抽题，高效练习
+    </div>
+    <div style="color: #94a3b8; font-size: 0.9rem; line-height: 1.6;">
+        <p>✨ <strong>随机抽取</strong>：系统从题库中随机抽取题目，避免重复练习</p>
+        <p>🎯 <strong>精准筛选</strong>：支持按知识点、难度筛选，针对性练习</p>
+        <p>⏱️ <strong>计时练习</strong>：内置倒计时功能，模拟真实面试场景</p>
+        <p>📊 <strong>学习记录</strong>：自动记录刷题数量，追踪学习进度</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
 # ==========================================
 # 侧边栏设置
 # ==========================================

@@ -353,6 +353,16 @@ with col_center:
     # ---- 登录 Tab ----
     with tab_login:
         with st.form("login_form", clear_on_submit=False):
+            st.markdown("""
+            <div style="text-align: center; margin-bottom: 1.2rem;">
+                <div style="font-size: 0.85rem; color: #818cf8; font-weight: 600; letter-spacing: 0.1em;">
+                    ✨ 欢迎回来，请登录您的账号
+                </div>
+                <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.3rem;">
+                    登录后即可开始高效刷题之旅
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
             st.markdown('<span class="input-label">👤 用户名</span>', unsafe_allow_html=True)
             login_username = st.text_input(
                 "用户名",
@@ -394,6 +404,16 @@ with col_center:
     # ---- 注册 Tab ----
     with tab_register:
         with st.form("register_form", clear_on_submit=False):
+            st.markdown("""
+            <div style="text-align: center; margin-bottom: 1.2rem;">
+                <div style="font-size: 0.85rem; color: #ec4899; font-weight: 600; letter-spacing: 0.1em;">
+                    🎉 创建新账号，开启学习之旅
+                </div>
+                <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.3rem;">
+                    注册后即可使用所有刷题功能
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
             st.markdown('<span class="input-label">👤 用户名</span>', unsafe_allow_html=True)
             reg_username = st.text_input(
                 "用户名",
