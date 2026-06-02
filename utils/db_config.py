@@ -17,16 +17,13 @@ DB_CONFIG = {
 DB_NAME = "quiz_system"
 
 # ==========================================
-# TiDB Cloud 配置说明（部署到 Streamlit Cloud 时使用）
+# Streamlit Cloud 部署配置
 # ==========================================
-# 在 Streamlit Cloud 项目的 Settings → Secrets 中填写以下内容：
+# 在 Streamlit Cloud 项目的 Settings → Secrets 中填写：
 #
 # [database]
-# host = "gateway01.us-west-2.prod.aws.tidbcloud.com"
+# host = "gateway01.ap-southeast-1.prod.alicloud.tidbcloud.com"
 # port = 4000
-# user = "xxxxxxx.root"
-# password = "xxxxxxxxxxxxxxx"
+# user = "42S5q2MAmcRFfHT.root"
+# password = "WZyUpXU2NW77rkEo"
 # database = "quiz_system"
-#
-# TiDB Cloud 注册地址：https://tidbcloud.com/free-trial
-# 创建 Serverless 集群后，在 "Connect" 页面获取以上信息。

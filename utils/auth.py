@@ -33,6 +33,9 @@ try:
                 "user": st.secrets["database"]["user"],
                 "password": st.secrets["database"]["password"],
                 "charset": "utf8mb4",
+                "ssl_ca": "",
+                "ssl_verify_cert": True,
+                "ssl_verify_identity": True,
             }
             _DB_NAME = st.secrets["database"].get("database", "quiz_system")
             _secrets_found = True
