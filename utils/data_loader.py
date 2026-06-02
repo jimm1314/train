@@ -9,9 +9,41 @@ import streamlit as st
 
 # 数据目录：相对于本文件向上一级的 data/ 文件夹
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
-REVIEW_FILE = os.path.join(DATA_DIR, "review_book.csv")
-STUDY_LOG_FILE = os.path.join(DATA_DIR, "study_log.csv")
-CHECKIN_FILE = os.path.join(DATA_DIR, "checkin_log.csv")
+
+
+def get_user_data_dir() -> str:
+    """获取当前用户的数据目录路径"""
+    username = st.session_state.get("username", "")
+    if not username:
+        return DATA_DIR
+    return os.path.join(DATA_DIR, "users", username)
+
+
+def ensure_user_data_dir():
+    """确保当前用户的数据目录存在"""
+    user_dir = get_user_data_dir()
+    os.makedirs(user_dir, exist_ok=True)
+    return user_dir
+
+
+def get_review_file() -> str:
+    """获取当前用户的错题本文件路径"""
+    return os.path.join(get_user_data_dir(), "review_book.csv")
+
+
+def get_study_log_file() -> str:
+    """获取当前用户的学习日志文件路径"""
+    return os.path.join(get_user_data_dir(), "study_log.csv")
+
+
+def get_checkin_file() -> str:
+    """获取当前用户的签到记录文件路径"""
+    return os.path.join(get_user_data_dir(), "checkin_log.csv")
+
+
+def get_dictation_file() -> str:
+    """获取当前用户的默写记录文件路径"""
+    return os.path.join(get_user_data_dir(), "dictation_log.csv")
 
 
 def _resolve_data_folder():

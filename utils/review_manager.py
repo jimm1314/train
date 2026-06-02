@@ -7,13 +7,17 @@ import pandas as pd
 from datetime import datetime, timedelta
 import streamlit as st
 
-from utils.data_loader import REVIEW_FILE, STUDY_LOG_FILE, CHECKIN_FILE, load_question_banks
+from utils.data_loader import (
+    get_review_file, get_study_log_file, get_checkin_file,
+    ensure_user_data_dir, load_question_banks,
+)
 
 
 def _read_review_file() -> pd.DataFrame:
     """读取错题本，不存在则返回空 DataFrame"""
-    if os.path.exists(REVIEW_FILE):
-        df = pd.read_csv(REVIEW_FILE, encoding="utf-8-sig")
+    review_file = get_review_file()
+    if os.path.exists(review_file):
+        df = pd.read_csv(review_file, encoding="utf-8-sig")
         for old, new in [("参考答案", "参考"), ("答案", "参考")]:
             if old in df.columns:
                 df.rename(columns={old: new}, inplace=True)
@@ -24,7 +28,8 @@ def _read_review_file() -> pd.DataFrame:
 def _write_review_file(df: pd.DataFrame):
     """写入错题本并清除缓存（带错误处理）"""
     try:
-        df.to_csv(REVIEW_FILE, index=False, encoding="utf-8-sig")
+        ensure_user_data_dir()
+        df.to_csv(get_review_file(), index=False, encoding="utf-8-sig")
         load_question_banks.clear()
     except PermissionError:
         st.error("文件被占用，请关闭其他打开此文件的程序后重试。")
@@ -118,17 +123,21 @@ def get_review_stats() -> dict:
 
 def _read_checkin() -> pd.DataFrame:
     """读取签到记录"""
-    if os.path.exists(CHECKIN_FILE):
-        return pd.read_csv(CHECKIN_FILE, encoding="utf-8-sig")
+    checkin_file = get_checkin_file()
+    if os.path.exists(checkin_file):
+        return pd.read_csv(checkin_file, encoding="utf-8-sig")
     return pd.DataFrame(columns=["日期", "签到时间", "活动类型"])
 
 
 def _write_checkin(df: pd.DataFrame):
     """写入签到记录"""
     try:
-        df.to_csv(CHECKIN_FILE, index=False, encoding="utf-8-sig")
-    except Exception:
-        pass
+        ensure_user_data_dir()
+        df.to_csv(get_checkin_file(), index=False, encoding="utf-8-sig")
+    except PermissionError:
+        st.error("签到文件被占用，请关闭其他打开此文件的程序后重试。")
+    except Exception as e:
+        st.error(f"签到记录保存失败: {e}")
 
 
 def check_in(activity_type: str = "学习"):
@@ -216,8 +225,9 @@ def log_study_session(count: int, activity: str = "抽题",
         for cat, cnt in categories.items():
             new_row[f"cat_{cat}"] = cnt
 
-    if os.path.exists(STUDY_LOG_FILE):
-        df = pd.read_csv(STUDY_LOG_FILE, encoding="utf-8-sig")
+    study_log_file = get_study_log_file()
+    if os.path.exists(study_log_file):
+        df = pd.read_csv(study_log_file, encoding="utf-8-sig")
         # 兼容旧数据：没有活动类型列就加上
         if "活动类型" not in df.columns:
             df["活动类型"] = "抽题"
@@ -225,7 +235,8 @@ def log_study_session(count: int, activity: str = "抽题",
     else:
         df = pd.DataFrame([new_row])
 
-    df.to_csv(STUDY_LOG_FILE, index=False, encoding="utf-8-sig")
+    ensure_user_data_dir()
+    df.to_csv(study_log_file, index=False, encoding="utf-8-sig")
 
     # 同时记录签到
     check_in(activity)
@@ -233,8 +244,9 @@ def log_study_session(count: int, activity: str = "抽题",
 
 def load_study_log() -> pd.DataFrame:
     """加载学习日志"""
-    if os.path.exists(STUDY_LOG_FILE):
-        df = pd.read_csv(STUDY_LOG_FILE, encoding="utf-8-sig")
+    study_log_file = get_study_log_file()
+    if os.path.exists(study_log_file):
+        df = pd.read_csv(study_log_file, encoding="utf-8-sig")
         if "活动类型" not in df.columns:
             df["活动类型"] = "抽题"
         return df

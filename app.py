@@ -7,6 +7,7 @@ from utils.session_state import init_session_state
 from utils.styles import inject_global_styles
 from utils.data_loader import get_filtered_questions
 from utils.review_manager import _read_review_file, load_study_log, get_checkin_stats
+from utils.auth import check_auth, get_current_user, is_admin, logout
 from components.metrics import render_overview_cards
 
 # ==========================================
@@ -20,6 +21,7 @@ st.set_page_config(
 )
 
 # 初始化
+check_auth()
 init_session_state()
 inject_global_styles()
 
@@ -30,6 +32,16 @@ with st.sidebar:
     st.title("📚 面试题刷题系统")
     st.markdown("**专业版** — 系统化刷题，高效备战面试")
     st.markdown("---")
+
+    # 用户信息
+    current_user = get_current_user()
+    if current_user:
+        st.markdown(f"👤 **当前用户：** `{current_user}`")
+        if st.button("🚪 退出登录", use_container_width=True):
+            logout()
+            st.switch_page("pages/0_🔐_登录注册.py")
+        st.markdown("---")
+
     st.markdown(
         "### 导航\n"
         "👈 使用左侧页面导航栏切换功能模块\n\n"
@@ -40,8 +52,13 @@ with st.sidebar:
         "- 📊 **学习统计** — 数据分析\n"
         "- ⚙️ **设置** — 系统配置"
     )
+
+    if is_admin():
+        st.markdown("---")
+        st.page_link("pages/7_👑_管理员.py", label="👑 管理员面板", icon="👑")
+        st.caption("查看和管理所有用户")
     st.markdown("---")
-    st.caption("v2.0 · 专业版")
+    st.caption("v2.1 · 专业版 · 多用户版")
 
 # ==========================================
 # 主页面：欢迎 + 概览

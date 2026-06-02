@@ -9,24 +9,26 @@ import os
 from datetime import datetime
 from utils.session_state import init_session_state
 from utils.styles import inject_global_styles, render_difficulty_tag, render_knowledge_tag
-from utils.data_loader import get_filtered_questions, get_knowledge_categories, DATA_DIR
+from utils.data_loader import get_filtered_questions, get_knowledge_categories, get_dictation_file, ensure_user_data_dir
 from utils.review_manager import save_to_review_book, log_study_session
+from utils.auth import check_auth
 from components.question_card import safe_format
 
 # 初始化
 st.set_page_config(page_title="默写模式", page_icon="✍️", layout="wide")
+check_auth()
 init_session_state()
 inject_global_styles()
 
 st.title("✍️ 默写模式")
 st.markdown("看到题目后**先凭记忆默写**，再对照参考答案查漏补缺。所有默写内容自动保存！")
 
-# 默写记录文件
-DICTATION_FILE = os.path.join(DATA_DIR, "dictation_log.csv")
+# 默写记录文件（动态获取当前用户路径）
 
 
 def save_dictation(question: str, reference: str, my_answer: str):
     """保存一条默写记录"""
+    dictation_file = get_dictation_file()
     today_str = datetime.now().strftime("%Y-%m-%d")
     new_row = pd.DataFrame([{
         "日期": today_str,
@@ -35,19 +37,21 @@ def save_dictation(question: str, reference: str, my_answer: str):
         "我的默写": my_answer,
     }])
 
-    if os.path.exists(DICTATION_FILE):
-        exist_df = pd.read_csv(DICTATION_FILE, encoding="utf-8-sig")
+    if os.path.exists(dictation_file):
+        exist_df = pd.read_csv(dictation_file, encoding="utf-8-sig")
         updated = pd.concat([exist_df, new_row], ignore_index=True)
     else:
         updated = new_row
 
-    updated.to_csv(DICTATION_FILE, index=False, encoding="utf-8-sig")
+    ensure_user_data_dir()
+    updated.to_csv(dictation_file, index=False, encoding="utf-8-sig")
 
 
 def load_dictation_log() -> pd.DataFrame:
     """加载默写记录"""
-    if os.path.exists(DICTATION_FILE):
-        return pd.read_csv(DICTATION_FILE, encoding="utf-8-sig")
+    dictation_file = get_dictation_file()
+    if os.path.exists(dictation_file):
+        return pd.read_csv(dictation_file, encoding="utf-8-sig")
     return pd.DataFrame(columns=["日期", "问题", "参考答案", "我的默写"])
 
 

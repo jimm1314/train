@@ -6,10 +6,12 @@ import streamlit as st
 from utils.session_state import init_session_state
 from utils.styles import inject_global_styles
 from utils.review_manager import _read_review_file, delete_from_review_book, update_note, log_study_session
+from utils.auth import check_auth
 from components.question_card import render_review_card, safe_format
 
 # 初始化
 st.set_page_config(page_title="错题复习", page_icon="📝", layout="wide")
+check_auth()
 init_session_state()
 inject_global_styles()
 

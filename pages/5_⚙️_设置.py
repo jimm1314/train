@@ -8,10 +8,12 @@ import os
 from datetime import datetime
 from utils.session_state import init_session_state
 from utils.styles import inject_global_styles
-from utils.data_loader import DATA_DIR, REVIEW_FILE, _resolve_data_folder, load_question_banks
+from utils.data_loader import DATA_DIR, _resolve_data_folder, get_review_file, get_study_log_file, get_user_data_dir, load_question_banks
+from utils.auth import check_auth
 
 # 初始化
 st.set_page_config(page_title="设置", page_icon="⚙️", layout="wide")
+check_auth()
 init_session_state()
 inject_global_styles()
 
@@ -22,18 +24,21 @@ st.title("⚙️ 系统设置")
 # ==========================================
 st.markdown("### 📁 数据路径")
 data_folder = _resolve_data_folder()
-st.code(f"数据目录: {data_folder}", language=None)
+user_data_folder = get_user_data_dir()
 
-if os.path.exists(data_folder):
-    files = os.listdir(data_folder)
-    st.markdown(f"目录下共 **{len(files)}** 个文件：")
+st.code(f"题库目录: {data_folder}", language=None)
+st.code(f"个人数据: {user_data_folder}", language=None)
+
+if os.path.exists(user_data_folder):
+    files = os.listdir(user_data_folder)
+    st.markdown(f"个人数据目录下共 **{len(files)}** 个文件：")
     for f in files:
-        fpath = os.path.join(data_folder, f)
+        fpath = os.path.join(user_data_folder, f)
         size = os.path.getsize(fpath)
         size_str = f"{size / 1024:.1f} KB" if size < 1024 * 1024 else f"{size / 1024 / 1024:.1f} MB"
         st.markdown(f"- 📄 `{f}` ({size_str})")
 else:
-    st.error(f"数据目录不存在: {data_folder}")
+    st.info("个人数据目录尚未创建，开始使用后会自动生成。")
 
 st.markdown("---")
 
@@ -42,8 +47,9 @@ st.markdown("---")
 # ==========================================
 st.markdown("### 📝 错题本管理")
 
-if os.path.exists(REVIEW_FILE):
-    review_df = pd.read_csv(REVIEW_FILE, encoding="utf-8-sig")
+review_file = get_review_file()
+if os.path.exists(review_file):
+    review_df = pd.read_csv(review_file, encoding="utf-8-sig")
     st.metric("错题本条目数", f"{len(review_df)} 条")
 
     col1, col2 = st.columns(2)
@@ -77,7 +83,7 @@ if os.path.exists(REVIEW_FILE):
                     if st.button("✅ 确认导入（合并到现有错题本）", use_container_width=True):
                         merged = pd.concat([review_df, import_df], ignore_index=True)
                         merged = merged.drop_duplicates(subset=["问题"], keep="last")
-                        merged.to_csv(REVIEW_FILE, index=False, encoding="utf-8-sig")
+                        merged.to_csv(review_file, index=False, encoding="utf-8-sig")
                         st.success(f"导入完成！当前错题本共 {len(merged)} 条。")
                         st.rerun()
                 else:
@@ -93,7 +99,7 @@ if os.path.exists(REVIEW_FILE):
         st.warning("此操作将永久删除所有错题记录，且无法恢复！")
         confirm_text = st.text_input("请输入「确认清空」来执行操作：", key="confirm_clear")
         if st.button("🗑️ 执行清空", type="primary", disabled=(confirm_text != "确认清空")):
-            os.remove(REVIEW_FILE)
+            os.remove(review_file)
             load_question_banks.clear()
             st.success("错题本已清空！")
             st.rerun()
@@ -106,7 +112,7 @@ st.markdown("---")
 # 学习记录管理
 # ==========================================
 st.markdown("### 📊 学习记录管理")
-study_log_path = os.path.join(data_folder, "study_log.csv")
+study_log_path = get_study_log_file()
 
 if os.path.exists(study_log_path):
     study_df = pd.read_csv(study_log_path, encoding="utf-8-sig")

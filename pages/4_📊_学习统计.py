@@ -11,9 +11,11 @@ from utils.session_state import init_session_state
 from utils.styles import inject_global_styles
 from utils.data_loader import get_filtered_questions
 from utils.review_manager import _read_review_file, load_study_log, get_checkin_stats, check_in
+from utils.auth import check_auth
 
 # 初始化
 st.set_page_config(page_title="学习统计", page_icon="📊", layout="wide")
+check_auth()
 init_session_state()
 inject_global_styles()
 
@@ -78,59 +80,54 @@ st.markdown("---")
 # ==========================================
 st.markdown("### 🗓️ 签到日历")
 
-if checkin["checkin_dates"]:
-    # 构建热力图数据
-    checkin_dates = set(checkin["checkin_dates"])
-    today = datetime.now().date()
+from datetime import timedelta
 
-    # 最近 90 天的数据
-    from datetime import timedelta
-    dates_range = [today - timedelta(days=i) for i in range(89, -1, -1)]
-    date_strs = [d.strftime("%Y-%m-%d") for d in dates_range]
+checkin_dates_set = set(checkin["checkin_dates"]) if checkin["checkin_dates"] else set()
+today = datetime.now().date()
 
-    # 按周分组（Plotly 日历热力图）
-    z_values = []
-    x_labels = []  # 周几
-    y_labels = []  # 第几周
+# 最近 90 天
+dates_range = [today - timedelta(days=i) for i in range(89, -1, -1)]
 
-    # 构建 7 行（周一到周日）x N 列（周数）的矩阵
-    weeks = []
-    current_week = [None] * 7
+# 按周分组：周一=0 ... 周日=6
+weeks = []
+current_week = [None] * 7
 
-    for d in dates_range:
-        weekday = d.weekday()  # 0=周一, 6=周日
-        date_str = d.strftime("%Y-%m-%d")
-        value = 1 if date_str in checkin_dates else 0
-        current_week[weekday] = value
-
-        if weekday == 6:  # 周日，一周结束
-            weeks.append(current_week)
-            current_week = [None] * 7
-
-    if any(v is not None for v in current_week):
+for d in dates_range:
+    weekday = d.weekday()
+    current_week[weekday] = 1 if d.strftime("%Y-%m-%d") in checkin_dates_set else 0
+    if weekday == 6:
         weeks.append(current_week)
+        current_week = [None] * 7
 
-    # 转置：行=星期几，列=第几周
-    if weeks:
-        matrix = list(zip(*weeks))
-        weekday_names = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+# 补齐最后一周
+if any(v is not None for v in current_week):
+    for i in range(7):
+        if current_week[i] is None:
+            current_week[i] = 0
+    weeks.append(current_week)
 
-        fig_cal = go.Figure(data=go.Heatmap(
-            z=[[v if v is not None else 0 for v in row] for row in matrix],
-            x=[f"第{i+1}周" for i in range(len(weeks))],
-            y=weekday_names,
-            colorscale=[[0, "#ebedf0"], [1, "#216e39"]],
-            showscale=False,
-            hovertemplate="%{y} %{x}<br>签到: %{z}<extra></extra>",
-        ))
-        fig_cal.update_layout(
-            height=250,
-            margin=dict(t=20, b=20, l=40, r=20),
-            yaxis=dict(autorange="reversed"),
-            xaxis=dict(showticklabels=False),
-        )
-        st.plotly_chart(fig_cal, use_container_width=True)
-        st.caption("🟢 = 已签到  ⬜ = 未签到（最近 90 天）")
+if weeks:
+    # 转置：行=星期几(7)，列=第几周(N)
+    matrix = list(zip(*weeks))
+    matrix = [[v if v is not None else 0 for v in row] for row in matrix]
+    weekday_names = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+
+    fig_cal = go.Figure(data=go.Heatmap(
+        z=matrix,
+        x=[f"第{i+1}周" for i in range(len(weeks))],
+        y=weekday_names,
+        colorscale=[[0, "#ebedf0"], [1, "#216e39"]],
+        showscale=False,
+        hovertemplate="%{y} %{x}<br>签到: %{z}<extra></extra>",
+    ))
+    fig_cal.update_layout(
+        height=250,
+        margin=dict(t=20, b=20, l=40, r=20),
+        yaxis=dict(autorange="reversed"),
+        xaxis=dict(showticklabels=False),
+    )
+    st.plotly_chart(fig_cal, use_container_width=True)
+    st.caption("🟢 = 已签到  ⬜ = 未签到（最近 90 天）")
 else:
     st.info("暂无签到记录，开始学习后自动签到。")
 

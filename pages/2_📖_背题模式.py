@@ -9,10 +9,12 @@ from utils.session_state import init_session_state
 from utils.styles import inject_global_styles, render_difficulty_tag, render_knowledge_tag
 from utils.data_loader import get_filtered_questions, get_knowledge_categories
 from utils.review_manager import save_to_review_book, log_study_session
+from utils.auth import check_auth
 from components.question_card import safe_format
 
 # 初始化
 st.set_page_config(page_title="背题模式", page_icon="📖", layout="wide")
+check_auth()
 init_session_state()
 inject_global_styles()
 
