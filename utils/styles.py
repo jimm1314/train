@@ -42,6 +42,17 @@ GLOBAL_CSS = """
         --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
+    /* ========== 隐藏 Streamlit 品牌元素 ========== */
+    #MainMenu {visibility: hidden !important;}
+    footer {visibility: hidden !important;}
+    header {visibility: hidden !important;}
+    .stDeployButton {display: none !important;}
+    [data-testid="stToolbar"] {display: none !important;}
+    [data-testid="stDecoration"] {display: none !important;}
+    #st-streamlit-header {display: none !important;}
+    a[href*="github.com"] {display: none !important;}
+    a[href*="streamlit.io"] {display: none !important;}
+
     /* ========== 全局基础 ========== */
     .stApp {
         background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);

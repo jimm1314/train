@@ -3,6 +3,7 @@
 入口文件：展示欢迎页 + 学习概览
 """
 import streamlit as st
+import plotly.express as px
 from utils.session_state import init_session_state
 from utils.styles import inject_global_styles
 from utils.data_loader import get_filtered_questions
@@ -31,26 +32,26 @@ inject_global_styles()
 with st.sidebar:
     st.markdown(
         '<div style="text-align:center; padding: 0.5rem 0 1rem 0;">'
-        '<span style="font-size: 1.6rem; font-weight: 800; '
+        '<span style="font-size: 1.5rem; font-weight: 800; '
         'background: linear-gradient(135deg, #818cf8, #f472b6); '
         '-webkit-background-clip: text; -webkit-text-fill-color: transparent; '
         'background-clip: text;">📚 面试题刷题系统</span>'
-        '<br><span style="color: #64748b; font-size: 0.82rem;">系统化刷题，高效备战面试</span>'
+        '<br><span style="color: #64748b; font-size: 0.8rem;">系统化刷题，高效备战面试</span>'
         '</div>',
         unsafe_allow_html=True,
     )
     st.markdown("---")
 
-    # 用户信息
+    # 用户信息卡片
     current_user = get_current_user()
     if current_user:
         st.markdown(
             f'<div style="display:flex; align-items:center; gap:10px; '
             f'padding: 0.6rem 0.8rem; background: rgba(99,102,241,0.08); '
             f'border: 1px solid rgba(99,102,241,0.15); border-radius: 10px; margin-bottom: 0.8rem;">'
-            f'<span style="font-size:1.3rem;">👤</span>'
-            f'<div><div style="font-weight:600; color:#e2e8f0; font-size:0.92rem;">{current_user}</div>'
-            f'<div style="color:#64748b; font-size:0.75rem;">当前在线</div></div>'
+            f'<span style="font-size:1.2rem;">👤</span>'
+            f'<div><div style="font-weight:600; color:#e2e8f0; font-size:0.9rem;">{current_user}</div>'
+            f'<div style="color:#64748b; font-size:0.72rem;">当前在线</div></div>'
             f'</div>',
             unsafe_allow_html=True,
         )
@@ -59,38 +60,22 @@ with st.sidebar:
             st.switch_page("pages/0_🔐_登录注册.py")
         st.markdown("---")
 
-    st.markdown(
-        '<div style="color: #94a3b8; font-size: 0.88rem; line-height: 1.8;">'
-        '<b style="color: #cbd5e1;">功能导航</b><br>'
-        '👈 使用左侧页面导航栏切换功能模块<br><br>'
-        '🎲 <b>抽题模式</b> — 随机抽题练习<br>'
-        '✍️ <b>默写模式</b> — 凭记忆默写<br>'
-        '📖 <b>背题模式</b> — 沉浸式背诵<br>'
-        '📝 <b>错题复习</b> — 巩固薄弱点<br>'
-        '📊 <b>学习统计</b> — 数据分析<br>'
-        '⚙️ <b>设置</b> — 系统配置'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-
     if is_admin():
-        st.markdown("---")
         st.page_link("pages/7_👑_管理员.py", label="👑 管理员面板", icon="👑")
-        st.caption("查看和管理所有用户")
-    st.markdown("---")
-    st.caption("v2.1 · 专业版 · 多用户版")
+        st.markdown("---")
+
+    st.caption("v2.2 · 专业版")
 
 # ==========================================
 # 主页面
 # ==========================================
-# 欢迎区域
 st.markdown(
-    '<div style="padding: 1rem 0 0.5rem 0;">'
-    '<h1 style="font-size: 2rem; font-weight: 800; margin-bottom: 0.3rem; '
+    '<div style="padding: 0.8rem 0 0.3rem 0;">'
+    '<h1 style="font-size: 1.8rem; font-weight: 800; margin-bottom: 0.2rem; '
     'background: linear-gradient(135deg, #818cf8, #f472b6); '
     '-webkit-background-clip: text; -webkit-text-fill-color: transparent; '
     'background-clip: text;">📚 面试题刷题系统</h1>'
-    '<p style="color: #94a3b8; font-size: 1rem;">欢迎回来！今日也要加油 💪</p>'
+    '<p style="color: #94a3b8; font-size: 0.95rem;">欢迎回来！今日也要加油 💪</p>'
     '</div>',
     unsafe_allow_html=True,
 )
@@ -115,8 +100,8 @@ st.markdown("---")
 
 # 快速入口
 st.markdown(
-    '<div style="margin-bottom: 1rem;">'
-    '<span style="font-size: 1.2rem; font-weight: 700; color: #e2e8f0;">🚀 快速开始</span>'
+    '<div style="margin-bottom: 0.8rem;">'
+    '<span style="font-size: 1.1rem; font-weight: 700; color: #e2e8f0;">🚀 快速开始</span>'
     '</div>',
     unsafe_allow_html=True,
 )
@@ -135,14 +120,29 @@ with col4:
     st.page_link("pages/3_📝_错题复习.py", label="📝 错题复习", icon="📝")
     st.caption("复习已收藏错题")
 
-# 知识点分布预览
+# 知识点分布预览（Plotly 版，适配暗色主题）
 if not df.empty and "知识点" in df.columns:
     st.markdown("---")
     st.markdown(
-        '<div style="margin-bottom: 1rem;">'
-        '<span style="font-size: 1.2rem; font-weight: 700; color: #e2e8f0;">📋 题库知识点分布</span>'
+        '<div style="margin-bottom: 0.8rem;">'
+        '<span style="font-size: 1.1rem; font-weight: 700; color: #e2e8f0;">📋 题库知识点分布</span>'
         '</div>',
         unsafe_allow_html=True,
     )
-    cat_counts = df["知识点"].value_counts()
-    st.bar_chart(cat_counts)
+    cat_counts = df["知识点"].value_counts().reset_index()
+    cat_counts.columns = ["知识点", "题目数"]
+    fig = px.bar(
+        cat_counts, x="知识点", y="题目数",
+        color="题目数", color_continuous_scale="Blues", text="题目数",
+    )
+    fig.update_layout(
+        height=350,
+        margin=dict(t=20, b=60),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#94a3b8"),
+        xaxis=dict(gridcolor="rgba(255,255,255,0.06)", tickangle=-30),
+        yaxis=dict(gridcolor="rgba(255,255,255,0.06)"),
+        coloraxis_showscale=False,
+    )
+    st.plotly_chart(fig, use_container_width=True)
