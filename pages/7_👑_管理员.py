@@ -183,8 +183,14 @@ with tab_review:
             mastery_counts.columns = ["掌握度", "题目数"]
             fig = px.bar(mastery_counts, x="掌握度", y="题目数",
                          color="掌握度", color_continuous_scale="YlGn", text="题目数")
-            fig.update_layout(height=300, showlegend=False,
-                              xaxis=dict(tickmode="linear", dtick=1), margin=dict(t=20))
+            fig.update_layout(
+                height=300, showlegend=False,
+                xaxis=dict(tickmode="linear", dtick=1, gridcolor="rgba(255,255,255,0.06)"),
+                yaxis=dict(gridcolor="rgba(255,255,255,0.06)"),
+                margin=dict(t=20),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#94a3b8"),
+            )
             st.plotly_chart(fig, use_container_width=True)
 
         # 导出
@@ -212,8 +218,14 @@ with tab_study:
             daily = daily.sort_values("日期")
             fig = px.line(daily, x="日期", y="刷题数", color="活动类型",
                           markers=True, line_shape="spline")
-            fig.update_layout(height=300, margin=dict(t=20),
-                              legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+            fig.update_layout(
+                height=300, margin=dict(t=20),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#94a3b8"),
+                xaxis=dict(gridcolor="rgba(255,255,255,0.06)"),
+                yaxis=dict(gridcolor="rgba(255,255,255,0.06)"),
+            )
             st.plotly_chart(fig, use_container_width=True)
 
         st.dataframe(study_log, use_container_width=True, hide_index=True)

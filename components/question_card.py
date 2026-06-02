@@ -1,6 +1,6 @@
 """
 题目卡片组件
-统一的题目展示组件，支持难度标签、知识点标签、Markdown 渲染。
+玻璃拟态风格的题目展示，支持难度标签、知识点标签、Markdown 渲染。
 """
 import html as html_mod
 import streamlit as st
@@ -19,19 +19,12 @@ def safe_format(text) -> str:
 def render_question_card(index: int, row: pd.Series, show_tags: bool = True,
                          show_save_button: bool = True, total_key: int = 0):
     """
-    渲染一道题目的卡片。
-
-    参数:
-        index: 题目序号（从 1 开始）
-        row: 包含 问题/参考/知识点/难度 等列的 Series
-        show_tags: 是否显示难度和知识点标签
-        show_save_button: 是否显示保存到错题本的按钮
-        total_key: 用于生成唯一 key 的计数器
+    渲染一道题目的卡片（玻璃拟态风格）。
     """
     question = row["问题"]
     answer = row["参考"]
 
-    # 标题行：序号 + 难度标签 + 知识点标签
+    # 标签
     tag_html = ""
     if show_tags:
         if "难度" in row and pd.notna(row["难度"]):
@@ -39,24 +32,33 @@ def render_question_card(index: int, row: pd.Series, show_tags: bool = True,
         if "知识点" in row and pd.notna(row["知识点"]) and row["知识点"] != "未分类":
             tag_html += render_knowledge_tag(str(row["知识点"]))
 
+    # 卡片容器
     st.markdown(
-        f'<div class="question-title">【第 {index} 题】 {safe_format(question)}</div>'
-        f'<div style="margin-bottom: 8px;">{tag_html}</div>',
+        f'<div class="question-card">'
+        f'<div class="question-title">📌 第 {index} 题</div>'
+        f'<div style="margin-bottom: 6px;">{tag_html}</div>'
+        f'<div style="color: #cbd5e1; line-height: 1.7; font-size: 0.95rem;">{safe_format(question)}</div>'
+        f'</div>',
         unsafe_allow_html=True,
     )
 
-    # 答案区域（折叠）
+    # 答案区域
     with st.expander("💡 点击查看参考答案及做笔记"):
-        st.markdown(safe_format(answer))
+        st.markdown(
+            f'<div class="answer-box">'
+            f'<div class="answer-box-header">✅ 参考答案</div>'
+            f'{safe_format(answer)}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
         if show_save_button:
-            st.markdown("---")
+            st.markdown("")
 
-            # 掌握度评分
             mastery = st.selectbox(
                 "⭐ 掌握度评分",
                 options=[1, 2, 3, 4, 5],
-                index=2,  # 默认选中"基本掌握"
+                index=2,
                 format_func=lambda x: ["⭐ 1分 - 完全不会", "⭐⭐ 2分 - 勉强记得",
                                         "⭐⭐⭐ 3分 - 基本掌握", "⭐⭐⭐⭐ 4分 - 熟练", "⭐⭐⭐⭐⭐ 5分 - 完全掌握"][x - 1],
                 key=f"mastery_{index}_{total_key}",
@@ -68,7 +70,7 @@ def render_question_card(index: int, row: pd.Series, show_tags: bool = True,
                 height=80,
             )
 
-            col1, col2 = st.columns([1, 1])
+            col1, col2 = st.columns(2)
             with col1:
                 if st.button("🚩 保存至错题本", key=f"save_{index}_{total_key}",
                              use_container_width=True):
@@ -82,25 +84,27 @@ def render_question_card(index: int, row: pd.Series, show_tags: bool = True,
                              use_container_width=True):
                     st.toast("👍 已跳过，继续保持！")
 
-    st.write("---")
+    st.markdown("")
 
 
 def render_review_card(index: int, row: pd.Series):
     """
-    渲染错题复习卡片（包含掌握度显示和复习操作）。
+    渲染错题复习卡片（玻璃拟态风格）。
     """
     question = row["问题"]
     answer = row["参考"]
 
-    # 掌握度星星
     mastery = int(row.get("掌握度", 0)) if pd.notna(row.get("掌握度", 0)) else 0
     review_count = int(row.get("复习次数", 0)) if pd.notna(row.get("复习次数", 0)) else 0
 
     stars_html = render_mastery_stars(mastery)
+
     st.markdown(
+        f'<div class="question-card">'
         f'<div class="question-title">📌 {safe_format(question)}</div>'
-        f'<div style="margin: 4px 0;">{stars_html} '
-        f'<span style="color: #6b7280; font-size: 0.85rem;">已复习 {review_count} 次</span></div>',
+        f'<div style="margin: 6px 0;">{stars_html} '
+        f'<span style="color: #64748b; font-size: 0.85rem;">已复习 {review_count} 次</span></div>'
+        f'</div>',
         unsafe_allow_html=True,
     )
 
@@ -115,15 +119,21 @@ def render_review_card(index: int, row: pd.Series):
 
     # 答案 + 操作
     with st.expander("💡 点击查看参考答案"):
-        st.markdown(safe_format(answer))
-        st.markdown("---")
+        st.markdown(
+            f'<div class="answer-box">'
+            f'<div class="answer-box-header">✅ 参考答案</div>'
+            f'{safe_format(answer)}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown("")
 
         col1, col2 = st.columns(2)
         with col1:
             new_mastery = st.selectbox(
                 "⭐ 更新掌握度",
                 options=[1, 2, 3, 4, 5],
-                index=max(0, min(4, int(row.get("掌握度", 3)) - 1)),  # 显示当前掌握度
+                index=max(0, min(4, int(row.get("掌握度", 3)) - 1)),
                 format_func=lambda x: ["⭐ 1分 - 完全不会", "⭐⭐ 2分 - 勉强记得",
                                         "⭐⭐⭐ 3分 - 基本掌握", "⭐⭐⭐⭐ 4分 - 熟练", "⭐⭐⭐⭐⭐ 5分 - 完全掌握"][x - 1],
                 key=f"review_mastery_{index}",
@@ -136,4 +146,4 @@ def render_review_card(index: int, row: pd.Series):
                 st.toast("✅ 复习记录已更新！")
                 st.rerun()
 
-    st.write("---")
+    st.markdown("")

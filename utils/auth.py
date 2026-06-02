@@ -49,11 +49,8 @@ try:
         _DB_NAME = DB_NAME
 
     # 尝试连接 MySQL
-    _test_conn = pymysql.connect(
-        host=_DB_CONFIG["host"], port=_DB_CONFIG["port"],
-        user=_DB_CONFIG["user"], password=_DB_CONFIG["password"],
-        charset="utf8mb4",
-    )
+    _test_conn_params = {k: v for k, v in _DB_CONFIG.items() if k != "database"}
+    _test_conn = pymysql.connect(**_test_conn_params)
     _test_conn.close()
     _USE_MYSQL = True
 except Exception:

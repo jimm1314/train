@@ -1,0 +1,18 @@
+"""
+数据库配置文件（示例）
+复制本文件为 db_config.py 并填入实际配置。
+db_config.py 已被 .gitignore 排除，不会上传到 GitHub。
+"""
+
+DB_CONFIG = {
+    "host": "your-tidb-host",
+    "port": 4000,
+    "user": "your-username",
+    "password": "your-password",
+    "charset": "utf8mb4",
+    "ssl_ca": "",
+    "ssl_verify_cert": True,
+    "ssl_verify_identity": True,
+}
+
+DB_NAME = "quiz_system"

@@ -29,28 +29,48 @@ inject_global_styles()
 # 侧边栏
 # ==========================================
 with st.sidebar:
-    st.title("📚 面试题刷题系统")
-    st.markdown("**专业版** — 系统化刷题，高效备战面试")
+    st.markdown(
+        '<div style="text-align:center; padding: 0.5rem 0 1rem 0;">'
+        '<span style="font-size: 1.6rem; font-weight: 800; '
+        'background: linear-gradient(135deg, #818cf8, #f472b6); '
+        '-webkit-background-clip: text; -webkit-text-fill-color: transparent; '
+        'background-clip: text;">📚 面试题刷题系统</span>'
+        '<br><span style="color: #64748b; font-size: 0.82rem;">系统化刷题，高效备战面试</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
     st.markdown("---")
 
     # 用户信息
     current_user = get_current_user()
     if current_user:
-        st.markdown(f"👤 **当前用户：** `{current_user}`")
+        st.markdown(
+            f'<div style="display:flex; align-items:center; gap:10px; '
+            f'padding: 0.6rem 0.8rem; background: rgba(99,102,241,0.08); '
+            f'border: 1px solid rgba(99,102,241,0.15); border-radius: 10px; margin-bottom: 0.8rem;">'
+            f'<span style="font-size:1.3rem;">👤</span>'
+            f'<div><div style="font-weight:600; color:#e2e8f0; font-size:0.92rem;">{current_user}</div>'
+            f'<div style="color:#64748b; font-size:0.75rem;">当前在线</div></div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
         if st.button("🚪 退出登录", use_container_width=True):
             logout()
             st.switch_page("pages/0_🔐_登录注册.py")
         st.markdown("---")
 
     st.markdown(
-        "### 导航\n"
-        "👈 使用左侧页面导航栏切换功能模块\n\n"
-        "- 🎲 **抽题模式** — 随机抽题练习\n"
-        "- ✍️ **默写模式** — 凭记忆默写，查漏补缺\n"
-        "- 📖 **背题模式** — 沉浸式背诵\n"
-        "- 📝 **错题复习** — 巩固薄弱点\n"
-        "- 📊 **学习统计** — 数据分析\n"
-        "- ⚙️ **设置** — 系统配置"
+        '<div style="color: #94a3b8; font-size: 0.88rem; line-height: 1.8;">'
+        '<b style="color: #cbd5e1;">功能导航</b><br>'
+        '👈 使用左侧页面导航栏切换功能模块<br><br>'
+        '🎲 <b>抽题模式</b> — 随机抽题练习<br>'
+        '✍️ <b>默写模式</b> — 凭记忆默写<br>'
+        '📖 <b>背题模式</b> — 沉浸式背诵<br>'
+        '📝 <b>错题复习</b> — 巩固薄弱点<br>'
+        '📊 <b>学习统计</b> — 数据分析<br>'
+        '⚙️ <b>设置</b> — 系统配置'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
     if is_admin():
@@ -61,10 +81,19 @@ with st.sidebar:
     st.caption("v2.1 · 专业版 · 多用户版")
 
 # ==========================================
-# 主页面：欢迎 + 概览
+# 主页面
 # ==========================================
-st.title("📚 面试题刷题系统")
-st.markdown("### 欢迎回来！今日也要加油 💪")
+# 欢迎区域
+st.markdown(
+    '<div style="padding: 1rem 0 0.5rem 0;">'
+    '<h1 style="font-size: 2rem; font-weight: 800; margin-bottom: 0.3rem; '
+    'background: linear-gradient(135deg, #818cf8, #f472b6); '
+    '-webkit-background-clip: text; -webkit-text-fill-color: transparent; '
+    'background-clip: text;">📚 面试题刷题系统</h1>'
+    '<p style="color: #94a3b8; font-size: 1rem;">欢迎回来！今日也要加油 💪</p>'
+    '</div>',
+    unsafe_allow_html=True,
+)
 st.markdown("---")
 
 # 加载统计数据
@@ -85,7 +114,13 @@ render_overview_cards(stats)
 st.markdown("---")
 
 # 快速入口
-st.markdown("### 🚀 快速开始")
+st.markdown(
+    '<div style="margin-bottom: 1rem;">'
+    '<span style="font-size: 1.2rem; font-weight: 700; color: #e2e8f0;">🚀 快速开始</span>'
+    '</div>',
+    unsafe_allow_html=True,
+)
+
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.page_link("pages/1_🎲_抽题模式.py", label="🎲 开始抽题", icon="🎲")
@@ -103,6 +138,11 @@ with col4:
 # 知识点分布预览
 if not df.empty and "知识点" in df.columns:
     st.markdown("---")
-    st.markdown("### 📋 题库知识点分布")
+    st.markdown(
+        '<div style="margin-bottom: 1rem;">'
+        '<span style="font-size: 1.2rem; font-weight: 700; color: #e2e8f0;">📋 题库知识点分布</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
     cat_counts = df["知识点"].value_counts()
     st.bar_chart(cat_counts)

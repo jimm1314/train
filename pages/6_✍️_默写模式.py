@@ -176,7 +176,7 @@ if st.session_state.get("_show_dictation_history", False):
                 st.text_area("", value=str(row.get("参考答案", "")), height=100,
                              disabled=True, key=f"hist_ref_{idx}")
 
-            st.markdown(f'<span style="color: #6b7280; font-size: 0.85rem;">📅 {row["日期"]}</span>',
+            st.markdown(f'<span style="color: #94a3b8; font-size: 0.85rem;">📅 {row["日期"]}</span>',
                         unsafe_allow_html=True)
             st.markdown("---")
 

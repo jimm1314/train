@@ -9,8 +9,8 @@ build/
 data/users/
 data/users.db
 
-# 本地数据库配置（含密码，不上传）
-# utils/db_config.py  # 如果不想泄露本地密码可以取消注释
+# 数据库配置（含密码，不上传）
+utils/db_config.py
 
 # IDE
 .idea/

@@ -60,7 +60,7 @@ with col_streak:
     streak = checkin["streak"]
     if streak > 0:
         st.markdown(
-            f'<div class="stat-card" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);">'
+            '<div class="stat-card">'
             f'<div class="stat-card-value">🔥 {streak} 天</div>'
             '<div class="stat-card-label">连续签到</div>'
             "</div>",
@@ -116,15 +116,18 @@ if weeks:
         z=matrix,
         x=[f"第{i+1}周" for i in range(len(weeks))],
         y=weekday_names,
-        colorscale=[[0, "#ebedf0"], [1, "#216e39"]],
+        colorscale=[[0, "rgba(255,255,255,0.04)"], [1, "#10b981"]],
         showscale=False,
         hovertemplate="%{y} %{x}<br>签到: %{z}<extra></extra>",
     ))
     fig_cal.update_layout(
         height=250,
         margin=dict(t=20, b=20, l=40, r=20),
-        yaxis=dict(autorange="reversed"),
+        yaxis=dict(autorange="reversed", color="#94a3b8"),
         xaxis=dict(showticklabels=False),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#94a3b8"),
     )
     st.plotly_chart(fig_cal, use_container_width=True)
     st.caption("🟢 = 已签到  ⬜ = 未签到（最近 90 天）")
@@ -178,6 +181,11 @@ if not study_log.empty and "日期" in study_log.columns:
         yaxis_title="活动次数",
         margin=dict(t=20),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#94a3b8"),
+        xaxis=dict(gridcolor="rgba(255,255,255,0.06)"),
+        yaxis=dict(gridcolor="rgba(255,255,255,0.06)"),
     )
     st.plotly_chart(fig_trend, use_container_width=True)
 else:
@@ -199,7 +207,13 @@ with col_left:
             cat_counts, x="知识点", y="题目数",
             color="题目数", color_continuous_scale="Blues", text="题目数",
         )
-        fig_cat.update_layout(showlegend=False, xaxis_tickangle=-45, height=400, margin=dict(t=20, b=80))
+        fig_cat.update_layout(
+            showlegend=False, xaxis_tickangle=-45, height=400, margin=dict(t=20, b=80),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#94a3b8"),
+            xaxis=dict(gridcolor="rgba(255,255,255,0.06)"),
+            yaxis=dict(gridcolor="rgba(255,255,255,0.06)"),
+        )
         st.plotly_chart(fig_cat, use_container_width=True)
 
 with col_right:
@@ -212,7 +226,11 @@ with col_right:
             diff_counts, values="题目数", names="难度",
             color="难度", color_discrete_map=color_map, hole=0.4,
         )
-        fig_diff.update_layout(height=400, margin=dict(t=20))
+        fig_diff.update_layout(
+            height=400, margin=dict(t=20),
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#94a3b8"),
+        )
         st.plotly_chart(fig_diff, use_container_width=True)
 
 st.markdown("---")
@@ -231,7 +249,13 @@ with col_left2:
             review_cat, x="知识点", y="错题数",
             color="错题数", color_continuous_scale="Reds", text="错题数",
         )
-        fig_heat.update_layout(showlegend=False, xaxis_tickangle=-45, height=350, margin=dict(t=20, b=80))
+        fig_heat.update_layout(
+            showlegend=False, xaxis_tickangle=-45, height=350, margin=dict(t=20, b=80),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#94a3b8"),
+            xaxis=dict(gridcolor="rgba(255,255,255,0.06)"),
+            yaxis=dict(gridcolor="rgba(255,255,255,0.06)"),
+        )
         st.plotly_chart(fig_heat, use_container_width=True)
 
 with col_right2:
@@ -245,7 +269,11 @@ with col_right2:
         )
         fig_mastery.update_layout(
             showlegend=False, height=350,
-            xaxis=dict(tickmode="linear", dtick=1), margin=dict(t=20),
+            xaxis=dict(tickmode="linear", dtick=1, gridcolor="rgba(255,255,255,0.06)"),
+            yaxis=dict(gridcolor="rgba(255,255,255,0.06)"),
+            margin=dict(t=20),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#94a3b8"),
         )
         st.plotly_chart(fig_mastery, use_container_width=True)
 
@@ -272,8 +300,13 @@ if not review_df.empty and "知识点" in review_df.columns:
             name="平均掌握度",
         ))
         fig_radar.update_layout(
-            polar=dict(radialaxis=dict(visible=True, range=[0, 5])),
+            polar=dict(
+                radialaxis=dict(visible=True, range=[0, 5], gridcolor="rgba(255,255,255,0.08)"),
+                bgcolor="rgba(0,0,0,0)",
+            ),
             height=450, margin=dict(t=40, b=40),
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#94a3b8"),
         )
         st.plotly_chart(fig_radar, use_container_width=True)
 

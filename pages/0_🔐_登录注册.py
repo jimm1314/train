@@ -1,6 +1,6 @@
 """
 登录注册页面
-用户认证入口，支持登录和注册功能。
+玻璃拟态风格的用户认证入口。
 """
 import streamlit as st
 from utils.auth import init_db, login_user, register_user, is_authenticated
@@ -21,81 +21,97 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
+    /* 页面背景 */
+    .stApp {
+        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+    }
+
     /* 登录卡片容器 */
     .auth-card {
-        max-width: 420px;
+        max-width: 440px;
         margin: 0 auto;
         padding: 2.5rem 2rem;
         background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
         border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 16px;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        border-radius: 20px;
+        box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
     }
 
-    /* 标题样式 */
+    /* 标题 */
     .auth-title {
         text-align: center;
-        font-size: 1.8rem;
-        font-weight: 700;
+        font-size: 2rem;
+        font-weight: 800;
         margin-bottom: 0.3rem;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #818cf8 0%, #f472b6 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
     }
-
     .auth-subtitle {
         text-align: center;
-        color: #9ca3af;
-        font-size: 0.9rem;
+        color: #64748b;
+        font-size: 0.92rem;
         margin-bottom: 2rem;
     }
 
-    /* Tab 样式美化 */
+    /* Tab 样式 */
     .stTabs [data-baseweb="tab-list"] {
         gap: 0;
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
         padding: 4px;
         margin-bottom: 1.5rem;
     }
     .stTabs [data-baseweb="tab"] {
-        border-radius: 8px;
+        border-radius: 10px;
         padding: 10px 24px;
         font-weight: 600;
-        font-size: 0.95rem;
+        font-size: 0.92rem;
+        color: #94a3b8;
+        transition: all 0.3s ease;
     }
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
         color: white;
     }
+    .stTabs [data-baseweb="tab-highlight"] { display: none; }
+    .stTabs [data-baseweb="tab-border"] { display: none; }
 
-    /* 输入框样式 */
+    /* 输入框 */
     .stTextInput > div > div > input {
-        border-radius: 10px;
+        border-radius: 12px;
         padding: 12px 16px;
-        font-size: 0.95rem;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        background: rgba(255, 255, 255, 0.05);
+        font-size: 0.92rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.04);
+        color: #e2e8f0;
+        transition: all 0.3s ease;
     }
     .stTextInput > div > div > input:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.25);
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+    .stTextInput > div > div > input::placeholder {
+        color: #475569;
     }
 
-    /* 按钮样式 */
+    /* 按钮 */
     .stButton > button {
-        border-radius: 10px;
+        border-radius: 12px;
         padding: 10px 0;
         font-weight: 600;
-        font-size: 1rem;
+        font-size: 0.95rem;
         border: none;
-        transition: all 0.3s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        letter-spacing: 0.03em;
     }
     .stButton > button:hover {
         transform: translateY(-1px);
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
     }
 
     /* 已登录状态 */
@@ -107,23 +123,33 @@ st.markdown("""
         width: 80px;
         height: 80px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #6366f1 0%, #ec4899 100%);
         display: flex;
         align-items: center;
         justify-content: center;
         margin: 0 auto 1rem auto;
         font-size: 2rem;
         color: white;
+        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
     }
     .logged-in-name {
         font-size: 1.4rem;
         font-weight: 700;
+        color: #e2e8f0;
         margin-bottom: 0.5rem;
     }
     .logged-in-hint {
-        color: #9ca3af;
+        color: #64748b;
         font-size: 0.9rem;
         margin-bottom: 1.5rem;
+    }
+
+    /* 底部提示 */
+    .auth-footer {
+        text-align: center;
+        color: #475569;
+        font-size: 0.8rem;
+        margin-top: 1.5rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -134,7 +160,6 @@ st.markdown("""
 if is_authenticated():
     username = st.session_state.get("username", "用户")
 
-    # 居中布局
     _, col_center, _ = st.columns([1, 2, 1])
     with col_center:
         st.markdown(f"""
@@ -250,9 +275,7 @@ with col_center:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 底部提示
     st.markdown(
-        '<p style="text-align: center; color: #6b7280; font-size: 0.8rem; margin-top: 1rem;">'
-        '首次使用请先注册账号 · 所有数据相互隔离</p>',
+        '<p class="auth-footer">首次使用请先注册账号 · 所有数据相互隔离</p>',
         unsafe_allow_html=True,
     )
