@@ -3,6 +3,15 @@
 入口文件：展示欢迎页 + 学习概览
 """
 import streamlit as st
+
+st.set_page_config(
+    page_title="面试题刷题系统",
+    page_icon="📚",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+import pandas as pd
 import plotly.express as px
 from utils.session_state import init_session_state
 from utils.styles import inject_global_styles
@@ -10,16 +19,8 @@ from utils.data_loader import get_filtered_questions
 from utils.review_manager import _read_review_file, load_study_log, get_checkin_stats
 from utils.auth import get_current_user, is_admin, logout
 from components.metrics import render_overview_cards
-
-# ==========================================
-# 页面配置
-# ==========================================
-st.set_page_config(
-    page_title="面试题刷题系统",
-    page_icon="📚",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+from utils.goal_manager import render_goal_progress, get_review_progress
+from utils.review_manager import get_due_reviews
 
 # 初始化
 init_session_state()
@@ -66,9 +67,10 @@ with st.sidebar:
 
     if is_admin():
         st.page_link("pages/7_👑_管理员.py", label="👑 管理员面板", icon="👑")
+        st.page_link("pages/8_✏️_题库编辑.py", label="✏️ 题库编辑", icon="✏️")
         st.markdown("---")
 
-    st.caption("v2.2 · 专业版")
+    st.caption("v3.0 · 专业版")
 
 # ==========================================
 # 主页面
@@ -102,7 +104,35 @@ render_overview_cards(stats)
 
 st.markdown("---")
 
-# 快速入口
+render_goal_progress()
+
+due_count = get_review_progress()
+if due_count > 0:
+    st.markdown("---")
+    due_df = get_due_reviews()
+    st.markdown(
+        f'<div style="margin-bottom: 0.8rem;">'
+        f'<span style="font-size: 1.1rem; font-weight: 700; color: #e2e8f0;">⏰ 今日待复习 '
+        f'<span style="background:#ef4444;color:white;padding:2px 8px;border-radius:10px;'
+        f'font-size:0.8rem;">{due_count} 题</span></span></div>',
+        unsafe_allow_html=True,
+    )
+    for _, row in due_df.head(5).iterrows():
+        q = str(row.get("问题", ""))[:80]
+        mastery = int(row.get("掌握度", 0)) if pd.notna(row.get("掌握度", 0)) else 0
+        stars = "★" * mastery + "☆" * (5 - mastery)
+        st.markdown(
+            f'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;">'
+            f'<span style="color:#f59e0b;">{stars}</span>'
+            f'<span style="color:#cbd5e1;font-size:0.9rem;">{q}</span></div>',
+            unsafe_allow_html=True,
+        )
+    if due_count > 5:
+        st.caption(f"... 还有 {due_count - 5} 道待复习")
+    st.page_link("pages/3_📝_错题复习.py", label="📝 前往错题复习", icon="📝")
+
+st.markdown("---")
+
 st.markdown(
     '<div style="margin-bottom: 0.8rem;">'
     '<span style="font-size: 1.1rem; font-weight: 700; color: #e2e8f0;">🚀 快速开始</span>'
@@ -110,17 +140,20 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     st.page_link("pages/1_🎲_抽题模式.py", label="🎲 开始抽题", icon="🎲")
     st.caption("随机抽取题目练习")
 with col2:
+    st.page_link("pages/9_🎤_模拟面试.py", label="🎤 模拟面试", icon="🎤")
+    st.caption("限时模拟面试")
+with col3:
     st.page_link("pages/6_✍️_默写模式.py", label="✍️ 默写模式", icon="✍️")
     st.caption("凭记忆默写答案")
-with col3:
+with col4:
     st.page_link("pages/2_📖_背题模式.py", label="📖 背题模式", icon="📖")
     st.caption("沉浸式浏览题目")
-with col4:
+with col5:
     st.page_link("pages/3_📝_错题复习.py", label="📝 错题复习", icon="📝")
     st.caption("复习已收藏错题")
 

@@ -3,14 +3,18 @@
 查看已收藏的错题，支持按日期/知识点/掌握度筛选和排序。
 """
 import streamlit as st
+
+st.set_page_config(page_title="错题复习", page_icon="📝", layout="wide")
+
 from utils.session_state import init_session_state
 from utils.styles import inject_global_styles
-from utils.review_manager import _read_review_file, delete_from_review_book, update_note, log_study_session
+from utils.review_manager import (
+    _read_review_file, delete_from_review_book, update_note,
+    log_study_session, get_due_reviews, ATTRIBUTION_OPTIONS,
+)
 from utils.auth import check_auth
 from components.question_card import render_review_card, safe_format
 
-# 初始化
-st.set_page_config(page_title="错题复习", page_icon="📝", layout="wide")
 check_auth()
 init_session_state()
 inject_global_styles()
@@ -70,8 +74,15 @@ with st.sidebar:
     # 掌握度筛选
     mastery_filter = st.selectbox("⭐ 掌握度筛选", ["全部", "未掌握 (0-2)", "已掌握 (3-5)"])
 
+    # 归因筛选
+    if "归因" in df.columns:
+        attr_options = ["全部"] + [a for a in ATTRIBUTION_OPTIONS if a in df["归因"].values]
+        selected_attr = st.selectbox("🏷️ 归因筛选", attr_options)
+    else:
+        selected_attr = "全部"
+
     # 排序方式
-    sort_by = st.selectbox("📊 排序方式", ["日期（最新）", "掌握度（低→高）", "复习次数（少→多）"])
+    sort_by = st.selectbox("📊 排序方式", ["日期（最新）", "掌握度（低→高）", "复习次数（少→多）", "待复习优先"])
 
     st.markdown("---")
     st.subheader("📈 快速统计")
@@ -94,12 +105,16 @@ if mastery_filter == "未掌握 (0-2)":
     filtered = filtered[filtered["掌握度"] <= 2]
 elif mastery_filter == "已掌握 (3-5)":
     filtered = filtered[filtered["掌握度"] >= 3]
+if selected_attr != "全部" and "归因" in filtered.columns:
+    filtered = filtered[filtered["归因"] == selected_attr]
 
 # 排序
 if sort_by == "掌握度（低→高）":
     filtered = filtered.sort_values("掌握度", ascending=True)
 elif sort_by == "复习次数（少→多）":
     filtered = filtered.sort_values("复习次数", ascending=True)
+elif sort_by == "待复习优先" and "next_review" in filtered.columns:
+    filtered = filtered.sort_values("next_review", ascending=True)
 else:
     filtered = filtered.sort_values("日期", ascending=False)
 

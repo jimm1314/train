@@ -12,17 +12,67 @@ from utils.data_loader import (
     ensure_user_data_dir, load_question_banks,
 )
 
+REVIEW_COLUMNS = ["日期", "问题", "参考", "备注", "掌握度", "复习次数", "标签",
+                  "归因", "next_review", "ease_factor", "interval", "repetitions"]
+
+ATTRIBUTION_OPTIONS = ["知识盲区", "理解偏差", "表达问题", "粗心大意", "其他"]
+
+
+def sm2(quality: int, repetitions: int, ease_factor: float, interval: int) -> tuple:
+    """
+    SM-2 间隔重复算法
+    quality: 0-5 (掌握度评分)
+    返回: (new_repetitions, new_ease_factor, new_interval)
+    """
+    quality = max(0, min(5, int(quality)))
+    ease_factor = max(1.3, float(ease_factor))
+    interval = max(1, int(interval))
+
+    if quality >= 3:
+        if repetitions == 0:
+            new_interval = 1
+        elif repetitions == 1:
+            new_interval = 6
+        else:
+            new_interval = round(interval * ease_factor)
+        new_repetitions = repetitions + 1
+        new_ease_factor = max(
+            1.3,
+            ease_factor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)),
+        )
+    else:
+        new_repetitions = 0
+        new_interval = 1
+        new_ease_factor = max(1.3, ease_factor - 0.2)
+
+    return new_repetitions, new_ease_factor, new_interval
+
 
 def _read_review_file() -> pd.DataFrame:
-    """读取错题本，不存在则返回空 DataFrame"""
+    """读取错题本，不存在则返回空 DataFrame。自动补全新列以保持向后兼容。"""
     review_file = get_review_file()
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
     if os.path.exists(review_file):
         df = pd.read_csv(review_file, encoding="utf-8-sig")
         for old, new in [("参考答案", "参考"), ("答案", "参考")]:
             if old in df.columns:
                 df.rename(columns={old: new}, inplace=True)
-        return df
-    return pd.DataFrame(columns=["日期", "问题", "参考", "备注", "掌握度", "复习次数", "标签"])
+    else:
+        df = pd.DataFrame(columns=REVIEW_COLUMNS)
+
+    new_col_defaults = {
+        "归因": "",
+        "next_review": today_str,
+        "ease_factor": 2.5,
+        "interval": 1,
+        "repetitions": 0,
+    }
+    for col, default in new_col_defaults.items():
+        if col not in df.columns:
+            df[col] = default
+
+    return df
 
 
 def _write_review_file(df: pd.DataFrame):
@@ -38,8 +88,9 @@ def _write_review_file(df: pd.DataFrame):
 
 
 def save_to_review_book(question: str, answer: str, note: str = "",
-                        mastery: int = 0, tags: str = ""):
-    """保存一道题到错题本。如果已存在则更新。"""
+                        mastery: int = 0, tags: str = "",
+                        attribution: str = ""):
+    """保存一道题到错题本。如果已存在则更新。SM-2 字段自动初始化。"""
     mastery = max(0, min(5, int(mastery)))
     today_str = datetime.now().strftime("%Y-%m-%d")
     new_row = {
@@ -50,6 +101,11 @@ def save_to_review_book(question: str, answer: str, note: str = "",
         "掌握度": mastery,
         "复习次数": 0,
         "标签": tags,
+        "归因": attribution,
+        "next_review": today_str,
+        "ease_factor": 2.5,
+        "interval": 1,
+        "repetitions": 0,
     }
 
     df = _read_review_file()
@@ -251,3 +307,61 @@ def load_study_log() -> pd.DataFrame:
             df["活动类型"] = "抽题"
         return df
     return pd.DataFrame(columns=["日期", "刷题数", "活动类型"])
+
+
+# ==========================================
+# SM-2 间隔重复扩展
+# ==========================================
+
+def update_sm2_after_review(question: str, quality: int):
+    """复习后更新 SM-2 参数和下次复习日期"""
+    df = _read_review_file()
+    if df.empty:
+        return
+    mask = df["问题"] == question
+    if not mask.any():
+        return
+
+    idx = df.index[mask][0]
+    cur_rep = int(df.loc[idx, "repetitions"]) if pd.notna(df.loc[idx, "repetitions"]) else 0
+    cur_ef = float(df.loc[idx, "ease_factor"]) if pd.notna(df.loc[idx, "ease_factor"]) else 2.5
+    cur_iv = int(df.loc[idx, "interval"]) if pd.notna(df.loc[idx, "interval"]) else 1
+
+    new_rep, new_ef, new_iv = sm2(quality, cur_rep, cur_ef, cur_iv)
+    next_date = (datetime.now() + timedelta(days=new_iv)).strftime("%Y-%m-%d")
+
+    df.loc[idx, "repetitions"] = new_rep
+    df.loc[idx, "ease_factor"] = round(new_ef, 2)
+    df.loc[idx, "interval"] = new_iv
+    df.loc[idx, "next_review"] = next_date
+    _write_review_file(df)
+
+
+def get_due_reviews() -> pd.DataFrame:
+    """获取今日待复习的题目（next_review <= 今天）"""
+    df = _read_review_file()
+    if df.empty or "next_review" not in df.columns:
+        return pd.DataFrame(columns=REVIEW_COLUMNS)
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    due = df[df["next_review"] <= today_str].copy()
+    return due
+
+
+def get_attribution_stats() -> dict:
+    """返回错题归因统计"""
+    df = _read_review_file()
+    if df.empty or "归因" not in df.columns:
+        return {}
+    counts = df["归因"].replace("", "未分类").value_counts().to_dict()
+    return counts
+
+
+def update_attribution(question: str, attribution: str):
+    """更新指定题目的归因分类"""
+    df = _read_review_file()
+    if df.empty:
+        return
+    mask = df["问题"] == question
+    if mask.any():
+        df.loc[mask, "归因"] = attribution
+        _write_review_file(df)

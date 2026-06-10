@@ -3,10 +3,14 @@
 玻璃拟态风格的题目展示，支持难度标签、知识点标签、Markdown 渲染。
 """
 import html as html_mod
+from datetime import datetime
 import streamlit as st
 import pandas as pd
 from utils.styles import render_difficulty_tag, render_knowledge_tag, render_mastery_stars
-from utils.review_manager import save_to_review_book, update_mastery, increment_review_count
+from utils.review_manager import (
+    save_to_review_book, update_mastery, increment_review_count,
+    update_sm2_after_review, update_attribution, ATTRIBUTION_OPTIONS,
+)
 
 
 def safe_format(text) -> str:
@@ -70,13 +74,20 @@ def render_question_card(index: int, row: pd.Series, show_tags: bool = True,
                 height=80,
             )
 
+            attribution = st.selectbox(
+                "🏷️ 错题归因（选填）",
+                options=[""] + ATTRIBUTION_OPTIONS,
+                format_func=lambda x: "请选择归因..." if x == "" else x,
+                key=f"attr_{index}_{total_key}",
+            )
+
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("🚩 保存至错题本", key=f"save_{index}_{total_key}",
                              use_container_width=True):
                     save_to_review_book(
                         question, answer, user_note,
-                        mastery=mastery,
+                        mastery=mastery, attribution=attribution,
                     )
                     st.toast("✅ 已保存至错题本！")
             with col2:
@@ -89,26 +100,45 @@ def render_question_card(index: int, row: pd.Series, show_tags: bool = True,
 
 def render_review_card(index: int, row: pd.Series):
     """
-    渲染错题复习卡片（玻璃拟态风格）。
+    渲染错题复习卡片（玻璃拟态风格），包含 SM-2 信息和归因标签。
     """
     question = row["问题"]
     answer = row["参考"]
 
     mastery = int(row.get("掌握度", 0)) if pd.notna(row.get("掌握度", 0)) else 0
     review_count = int(row.get("复习次数", 0)) if pd.notna(row.get("复习次数", 0)) else 0
+    attribution = str(row.get("归因", "")) if pd.notna(row.get("归因", "")) else ""
+    next_review = str(row.get("next_review", "")) if pd.notna(row.get("next_review", "")) else ""
 
     stars_html = render_mastery_stars(mastery)
+
+    attr_tag = ""
+    if attribution:
+        attr_colors = {
+            "知识盲区": "#ef4444", "理解偏差": "#f97316",
+            "表达问题": "#f59e0b", "粗心大意": "#8b5cf6", "其他": "#6b7280",
+        }
+        color = attr_colors.get(attribution, "#6b7280")
+        attr_tag = f' <span style="background:{color}22;color:{color};padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;border:1px solid {color}44;">{attribution}</span>'
+
+    sm2_info = ""
+    if next_review:
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        if next_review <= today_str:
+            sm2_info = ' <span style="color:#ef4444;font-size:0.78rem;">⏰ 待复习</span>'
+        else:
+            sm2_info = f' <span style="color:#64748b;font-size:0.78rem;">📅 下次: {next_review}</span>'
 
     st.markdown(
         f'<div class="question-card">'
         f'<div class="question-title">📌 {safe_format(question)}</div>'
         f'<div style="margin: 6px 0;">{stars_html} '
-        f'<span style="color: #64748b; font-size: 0.85rem;">已复习 {review_count} 次</span></div>'
+        f'<span style="color: #64748b; font-size: 0.85rem;">已复习 {review_count} 次</span>'
+        f'{attr_tag}{sm2_info}</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
 
-    # 笔记
     if "备注" in row and pd.notna(row["备注"]) and str(row["备注"]).strip():
         date_str = row.get("日期", "")
         st.markdown(
@@ -117,7 +147,6 @@ def render_review_card(index: int, row: pd.Series):
             unsafe_allow_html=True,
         )
 
-    # 答案 + 操作
     with st.expander("💡 点击查看参考答案"):
         st.markdown(
             f'<div class="answer-box">'
@@ -143,7 +172,21 @@ def render_review_card(index: int, row: pd.Series):
                          use_container_width=True):
                 increment_review_count(question)
                 update_mastery(question, new_mastery)
+                update_sm2_after_review(question, new_mastery)
                 st.toast("✅ 复习记录已更新！")
+                st.rerun()
+
+        new_attr = st.selectbox(
+            "🏷️ 更新归因分类",
+            options=[""] + ATTRIBUTION_OPTIONS,
+            index=([""] + ATTRIBUTION_OPTIONS).index(attribution) if attribution in ATTRIBUTION_OPTIONS else 0,
+            format_func=lambda x: "不修改" if x == "" else x,
+            key=f"review_attr_{index}",
+        )
+        if new_attr and new_attr != attribution:
+            if st.button("💾 保存归因", key=f"save_attr_{index}", use_container_width=True):
+                update_attribution(question, new_attr)
+                st.toast("✅ 归因已更新！")
                 st.rerun()
 
     st.markdown("")

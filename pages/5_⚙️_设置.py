@@ -3,16 +3,18 @@
 系统配置、数据管理、导入导出。
 """
 import streamlit as st
+
+st.set_page_config(page_title="设置", page_icon="⚙️", layout="wide")
+
 import pandas as pd
 import os
 from datetime import datetime
 from utils.session_state import init_session_state
 from utils.styles import inject_global_styles
 from utils.data_loader import DATA_DIR, _resolve_data_folder, get_review_file, get_study_log_file, get_user_data_dir, load_question_banks
-from utils.auth import check_auth
+from utils.auth import check_auth, get_current_user
+from utils.goal_manager import load_goals, save_goals
 
-# 初始化
-st.set_page_config(page_title="设置", page_icon="⚙️", layout="wide")
 check_auth()
 init_session_state()
 inject_global_styles()
@@ -143,19 +145,124 @@ if st.button("🔄 清除所有缓存", use_container_width=True):
 
 st.markdown("---")
 
+st.markdown(
+    '<div style="margin-bottom: 0.5rem;">'
+    '<span style="font-size: 1.05rem; font-weight: 700; color: #e2e8f0;">🎯 学习目标设定</span>'
+    '</div>',
+    unsafe_allow_html=True,
+)
+
+goals = load_goals()
+
+with st.form("goals_form"):
+    daily_q = st.number_input("📝 每日刷题目标（道）", min_value=1, max_value=200,
+                              value=goals.get("daily_questions", 20))
+    weekly_q = st.number_input("📅 每周刷题目标（道）", min_value=1, max_value=1000,
+                               value=goals.get("weekly_questions", 100))
+    daily_r = st.number_input("🔄 每日复习目标（道）", min_value=0, max_value=100,
+                              value=goals.get("daily_review", 5))
+
+    if st.form_submit_button("💾 保存目标", use_container_width=True):
+        new_goals = {
+            "daily_questions": daily_q,
+            "weekly_questions": weekly_q,
+            "daily_review": daily_r,
+        }
+        save_goals(new_goals)
+        st.success("✅ 学习目标已更新！")
+
+st.markdown("---")
+
+st.markdown(
+    '<div style="margin-bottom: 0.5rem;">'
+    '<span style="font-size: 1.05rem; font-weight: 700; color: #e2e8f0;">🤖 AI 评分配置</span>'
+    '</div>',
+    unsafe_allow_html=True,
+)
+
+st.markdown("""
+<div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px; padding: 1rem; margin-bottom: 1rem;">
+    <p style="color: #94a3b8; font-size: 0.85rem; line-height: 1.6; margin: 0;">
+        AI 评分功能支持 <strong>MIMO</strong>、<strong>Gemini</strong> 和 <strong>OpenAI</strong> 三种 API。
+        默写模式和模拟面试将使用 AI 进行智能评分。
+        未配置 API 时自动使用本地文本相似度算法（无需 API 也能使用）。
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+from utils.ai_scorer import MIMO_API_KEY
+
+has_mimo = bool(MIMO_API_KEY)
+has_gemini = bool(os.environ.get("GEMINI_API_KEY"))
+has_openai = bool(os.environ.get("OPENAI_API_KEY"))
+try:
+    if not has_gemini:
+        has_gemini = bool(st.secrets.get("GEMINI_API_KEY"))
+    if not has_openai:
+        has_openai = bool(st.secrets.get("OPENAI_API_KEY"))
+except Exception:
+    pass
+
+col_ai0, col_ai1, col_ai2 = st.columns(3)
+with col_ai0:
+    status = "✅ 已配置（默认）" if has_mimo else "❌ 未配置"
+    st.markdown(
+        f'<div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);'
+        f'border-radius:10px;padding:1rem;">'
+        f'<div style="font-weight:700;color:#e2e8f0;">MIMO API（首选）</div>'
+        f'<div style="color:#94a3b8;font-size:0.85rem;">{status}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+with col_ai1:
+    status = "✅ 已配置" if has_gemini else "❌ 未配置"
+    st.markdown(
+        f'<div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);'
+        f'border-radius:10px;padding:1rem;">'
+        f'<div style="font-weight:700;color:#e2e8f0;">Gemini API（备选）</div>'
+        f'<div style="color:#94a3b8;font-size:0.85rem;">{status}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+with col_ai2:
+    status = "✅ 已配置" if has_openai else "❌ 未配置"
+    st.markdown(
+        f'<div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);'
+        f'border-radius:10px;padding:1rem;">'
+        f'<div style="font-weight:700;color:#e2e8f0;">OpenAI API（备选）</div>'
+        f'<div style="color:#94a3b8;font-size:0.85rem;">{status}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+st.markdown(
+    '<div style="color:#64748b;font-size:0.8rem;margin-top:0.5rem;">'
+    '评分优先级：MIMO API → Gemini API → OpenAI API → 本地算法。<br>'
+    '如需使用其他 API，可在 <code>.streamlit/secrets.toml</code> 或环境变量中配置。</div>',
+    unsafe_allow_html=True,
+)
+
+st.markdown("---")
+
 # ==========================================
 # 关于
 # ==========================================
 st.markdown("### ℹ️ 关于")
 st.markdown("""
-**面试题刷题系统 — 专业版 v2.1**
+**面试题刷题系统 — 专业版 v3.0**
 
 - 🎲 抽题模式：随机抽题，支持知识点/难度筛选
-- ✍️ 默写模式：凭记忆默写，对照答案查漏补缺
+- ✍️ 默写模式：凭记忆默写，支持 AI 评分
 - 📖 背题模式：分页浏览，沉浸式背诵
-- 📝 错题复习：掌握度评估，智能排序
+- 📝 错题复习：掌握度评估，归因分析
+- 🎤 模拟面试：限时作答，AI 智能评分
 - 📊 学习统计：多维度数据分析图表
-- ⚙️ 设置：数据导入导出、缓存管理
+- ⏰ 间隔重复：SM-2 算法智能安排复习
+- 🎯 目标追踪：设定每日/每周学习目标
+- ✏️ 题库编辑：在线管理题库
+- 🤖 AI 评分：支持 MIMO / Gemini / OpenAI API
+- 📱 PWA 支持：可添加到主屏幕
 
 **技术栈：** Streamlit + Pandas + Plotly
 """)

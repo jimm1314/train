@@ -4,6 +4,9 @@
 所有默写内容自动保存，方便回顾和对比。
 """
 import streamlit as st
+
+st.set_page_config(page_title="默写模式", page_icon="✍️", layout="wide")
+
 import pandas as pd
 import os
 from datetime import datetime
@@ -12,10 +15,9 @@ from utils.styles import inject_global_styles, render_difficulty_tag, render_kno
 from utils.data_loader import get_filtered_questions, get_knowledge_categories, get_dictation_file, ensure_user_data_dir
 from utils.review_manager import save_to_review_book, log_study_session
 from utils.auth import check_auth
+from utils.ai_scorer import score_answer, render_score_result
 from components.question_card import safe_format
 
-# 初始化
-st.set_page_config(page_title="默写模式", page_icon="✍️", layout="wide")
 check_auth()
 init_session_state()
 inject_global_styles()
@@ -81,6 +83,9 @@ defaults = {
     "dictation_meta": [],
     "dictation_submitted": [],
     "dictation_show_answer": [],
+    "dictation_scores": [],
+    "dictation_feedbacks": [],
+    "dictation_methods": [],
 }
 for k, v in defaults.items():
     st.session_state.setdefault(k, v)
@@ -264,15 +269,35 @@ for i in range(len(st.session_state.dictation_questions)):
             save_to_review_book(q, ans, my_answer, mastery=0)
             st.toast("✅ 已收藏至错题本！")
 
-    # 展示参考答案（折叠）
     if st.session_state.dictation_show_answer[i]:
         st.markdown('<div class="note-box">✅ <b>参考答案：</b></div>', unsafe_allow_html=True)
         st.info(safe_format(ans))
 
-        # 展示我的默写（如果有）
         if st.session_state.dictation_submitted[i]:
             st.markdown('<div class="note-box">📝 <b>我的默写：</b></div>', unsafe_allow_html=True)
             st.text_area("", value=my_answer, height=100, disabled=True, key=f"my_saved_{i}")
+
+        if st.button("🤖 AI 评分", key=f"ai_score_{i}", use_container_width=True):
+            if my_answer.strip():
+                with st.spinner("正在评分..."):
+                    s, f, m = score_answer(q, ans, my_answer)
+                while len(st.session_state.dictation_scores) <= i:
+                    st.session_state.dictation_scores.append(0)
+                    st.session_state.dictation_feedbacks.append("")
+                    st.session_state.dictation_methods.append("local")
+                st.session_state.dictation_scores[i] = s
+                st.session_state.dictation_feedbacks[i] = f
+                st.session_state.dictation_methods[i] = m
+                st.rerun()
+            else:
+                st.warning("请先写下你的答案再评分~")
+
+        if i < len(st.session_state.dictation_scores) and st.session_state.dictation_scores[i] > 0:
+            render_score_result(
+                st.session_state.dictation_scores[i],
+                st.session_state.dictation_feedbacks[i],
+                st.session_state.dictation_methods[i],
+            )
 
     st.markdown("---")
 

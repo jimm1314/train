@@ -3,6 +3,9 @@
 使用 Plotly 图表展示学习数据分析 + 签到日历。
 """
 import streamlit as st
+
+st.set_page_config(page_title="学习统计", page_icon="📊", layout="wide")
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -10,11 +13,9 @@ from datetime import datetime
 from utils.session_state import init_session_state
 from utils.styles import inject_global_styles
 from utils.data_loader import get_filtered_questions
-from utils.review_manager import _read_review_file, load_study_log, get_checkin_stats, check_in
+from utils.review_manager import _read_review_file, load_study_log, get_checkin_stats, check_in, get_attribution_stats
 from utils.auth import check_auth
 
-# 初始化
-st.set_page_config(page_title="学习统计", page_icon="📊", layout="wide")
 check_auth()
 init_session_state()
 inject_global_styles()
@@ -280,8 +281,48 @@ with col_right2:
 st.markdown("---")
 
 # ==========================================
-# 雷达图
+# 错题归因分析
 # ==========================================
+st.markdown("### 🏷️ 错题归因分析")
+attr_stats = get_attribution_stats()
+if attr_stats:
+    col_attr1, col_attr2 = st.columns(2)
+    with col_attr1:
+        attr_df = pd.DataFrame(list(attr_stats.items()), columns=["归因类型", "题目数"])
+        color_map = {
+            "知识盲区": "#ef4444", "理解偏差": "#f97316",
+            "表达问题": "#f59e0b", "粗心大意": "#8b5cf6",
+            "其他": "#6b7280", "未分类": "#94a3b8",
+        }
+        fig_attr = px.pie(
+            attr_df, values="题目数", names="归因类型",
+            color="归因类型", color_discrete_map=color_map, hole=0.4,
+        )
+        fig_attr.update_layout(
+            height=350, margin=dict(t=20),
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#94a3b8"),
+        )
+        st.plotly_chart(fig_attr, use_container_width=True)
+    with col_attr2:
+        for attr_type, count in attr_stats.items():
+            color = color_map.get(attr_type, "#94a3b8")
+            pct = count / sum(attr_stats.values()) * 100
+            st.markdown(
+                f'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;">'
+                f'<span style="background:{color}22;color:{color};padding:3px 10px;border-radius:8px;'
+                f'font-size:0.85rem;font-weight:600;border:1px solid {color}44;min-width:80px;text-align:center;">'
+                f'{attr_type}</span>'
+                f'<div style="flex:1;height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;">'
+                f'<div style="height:100%;width:{pct:.0f}%;background:{color};border-radius:4px;"></div></div>'
+                f'<span style="color:#94a3b8;font-size:0.85rem;min-width:50px;text-align:right;">{count} 道</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+else:
+    st.info("暂无归因数据。保存错题时选择归因类型即可生成分析。")
+
+st.markdown("---")
 st.markdown("### 🕸️ 知识点掌握度雷达图")
 if not review_df.empty and "知识点" in review_df.columns:
     radar_data = review_df.groupby("知识点")["掌握度"].mean().reset_index()

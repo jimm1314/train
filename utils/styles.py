@@ -6,10 +6,13 @@ import streamlit as st
 
 
 def inject_global_styles():
-    """注入全局 CSS 样式到 Streamlit 页面"""
-    # 确保移动端 viewport 正确
+    """注入全局 CSS 样式和 PWA meta 标签到 Streamlit 页面"""
     st.markdown(
-        '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">',
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">'
+        '<meta name="theme-color" content="#0f0f1a">'
+        '<meta name="apple-mobile-web-app-capable" content="yes">'
+        '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">'
+        '<meta name="apple-mobile-web-app-title" content="面试刷题">',
         unsafe_allow_html=True,
     )
     st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
