@@ -1,0 +1,225 @@
+
+============================================================
+模块 1：ai_scorer.py -- AI 评分模块
+============================================================
+  [PASS] 模块导入
+
+  --- 1.1 关键词提取 ---
+  [PASS] 中文关键词提取 -- 提取到 11 个关键词
+  [PASS] 英文关键词提取 -- 提取到 5 个关键词
+  [PASS] 空文本关键词提取
+  [WARN] 停用词过滤 -- 停用词集合大小: 6
+  [PASS] 混合中英文提取 -- 提取到 7 个关键词
+
+  --- 1.2 JSON 响应解析 ---
+  [PASS] 标准JSON解析 -- score=85, feedback=回答不错
+  [PASS] 代码块JSON解析 -- score=70
+  [PASS] 带文本JSON解析 -- score=60
+  [PASS] score=0边界值
+  [PASS] score=100边界值
+  [PASS] 超出范围clamp
+  [PASS] 负数clamp
+  [PASS] 字符串分数转换
+  [PASS] 无score字段返回None
+  [PASS] 纯文本返回None
+  [PASS] 空字符串返回None
+  [PASS] 含花括号feedback -- score=75
+
+  --- 1.3 本地评分算法 ---
+  [PASS] 完全匹配评分 -- score=100
+  [PASS] 空答案评分 -- score=0, feedback=未作答
+  [PASS] 部分匹配评分 -- score=43
+  [PASS] 不匹配评分 -- score=0
+  [PASS] 长文本评分 -- score=89
+  [PASS] 英文评分 -- score=56
+  [PASS] 纯标点评分 -- score=0
+
+  --- 1.4 score_answer 主评分函数 ---
+  [PASS] 空答案评分(本地) -- score=0, method=local
+  [PASS] 正常答案评分(本地) -- score=84, method=local
+  [PASS] 返回值类型检查
+  [PASS] MIMO API评分 -- score=80, method=mimo
+
+  --- 1.5 辅助函数 ---
+  [PASS] get_score_color
+  [PASS] get_score_label
+  [PASS] get_method_label
+
+  --- 1.6 MIMO API 连通性 ---
+  [PASS] MIMO API 连通性 -- status=200
+
+============================================================
+🗄️ 模块 2：db.py — 数据库模块
+============================================================
+  [PASS] db模块导入
+  [PASS] 数据库模式检测 -- MySQL=False
+  [PASS] init_tables
+  [PASS] execute INSERT
+  [PASS] execute SELECT -- 找到 1 条记录
+  [PASS] execute DELETE
+  [PASS] query_df 空结果
+  [PASS] execute_transaction
+  [PASS] _adapt_sql -- MySQL->SQLite 转换正确
+  [PASS] 表结构完整性 -- 所有 6 张表存在
+
+============================================================
+🔐 模块 3：auth.py — 用户认证模块
+============================================================
+  [PASS] auth模块导入
+  [PASS] init_db
+  [PASS] 密码哈希 -- hash_len=64
+  [PASS] 空用户名拒绝
+  [PASS] 短用户名拒绝
+  [PASS] 短密码拒绝
+  [PASS] 无字母密码拒绝
+  [PASS] 合法注册 -- 注册成功！
+  [PASS] 注册功能 -- 注册成功！
+  [PASS] 错误密码拒绝
+  [PASS] 不存在用户拒绝
+  [PASS] 正常登录
+  [PASS] 用户计数 -- count=6
+  [PASS] 用户列表 -- users=['admin', 'xiaoming', 'zhangsan', 'wangwu', 'zzz', 'testuser']
+  [PASS] 删除用户 -- 用户 testuser 已删除
+  [PASS] admin不可删除
+
+============================================================
+📚 模块 4：review_manager.py — 错题本 & 学习管理
+============================================================
+  [PASS] review_manager导入
+
+  --- 4.1 SM-2 算法 ---
+  [PASS] SM-2 初次良好 -- rep=1, ef=2.50, iv=1
+  [PASS] SM-2 第二次良好 -- rep=2, iv=6
+  [PASS] SM-2 EF计算间隔 -- iv=15
+  [PASS] SM-2 不及格重置 -- rep=0, ef=2.30, iv=1
+  [PASS] SM-2 EF下限 -- ef_min=1.30
+  [PASS] SM-2 quality=-1 -- rep=0, ef=2.30
+  [PASS] SM-2 quality=0 -- rep=0, ef=2.30
+  [PASS] SM-2 quality=1 -- rep=0, ef=2.30
+  [PASS] SM-2 quality=2 -- rep=0, ef=2.30
+  [PASS] SM-2 quality=3 -- rep=1, ef=2.36
+  [PASS] SM-2 quality=4 -- rep=1, ef=2.50
+  [PASS] SM-2 quality=5 -- rep=1, ef=2.60
+  [PASS] SM-2 quality=6 -- rep=1, ef=2.60
+
+  --- 4.2 错题本 CRUD ---
+  [PASS] save_to_review_book
+  [PASS] 读取错题本 -- 掌握度=3, 归因=知识盲区
+  [PASS] 重复保存覆盖
+  [PASS] update_mastery
+  [PASS] update_note
+  [PASS] increment_review_count
+  [PASS] update_attribution
+  [PASS] get_review_stats -- total=1, avg_mastery=4.0
+  [PASS] get_attribution_stats -- stats={'理解偏差': 1}
+  [PASS] update_sm2_after_review -- next_review=2026-06-15, ef=2.5
+  [PASS] get_due_reviews -- 到期复习数: 0
+  [PASS] delete_from_review_book
+
+  --- 4.3 签到系统 ---
+  [PASS] check_in
+  [PASS] get_checkin_stats -- total_days=1, streak=1
+  [PASS] 重复签到 -- 应静默跳过
+
+  --- 4.4 学习日志 ---
+  [PASS] log_study_session
+  [PASS] load_study_log -- 日志条数: 1
+  [PASS] 测试数据清理
+
+============================================================
+📊 模块 5：data_loader.py — 数据加载模块
+============================================================
+  [PASS] data_loader导入
+  [PASS] 列名标准化(参考答案->参考)
+  [PASS] 列名标准化(答案->参考)
+  [PASS] get_difficulty_levels
+  [PASS] load_question_banks -- 题目数: 138, 列: ['问题', '参考', '是否显示', '来源文件', '知识点', '难度', '来源']
+  [PASS] get_knowledge_categories -- 分类数: 1, 示例: ['未分类']
+  [PASS] get_filtered_questions -- 过滤后: 121 题
+  [WARN] get_categories_from_db -- DB分类: 0 个
+
+============================================================
+🎯 模块 6：goal_manager.py — 学习目标管理
+============================================================
+  [PASS] goal_manager导入
+  [PASS] load_goals 默认值 -- goals={'daily_questions': 20, 'weekly_questions': 100, 'daily_review': 5}
+  [PASS] save_goals -- goals={'daily_questions': 30, 'weekly_questions': 150, 'daily_review': 10}
+  [PASS] get_today_progress -- today={'questions': 0}
+  [PASS] get_weekly_progress -- weekly={'questions': 0}
+  [PASS] get_review_progress -- due_count=0
+
+============================================================
+🎨 模块 7：styles.py — 样式模块
+============================================================
+  [PASS] styles导入
+  [PASS] render_difficulty_tag
+  [PASS] render_knowledge_tag
+[FAIL] test_styles crashed: level=0 应包含实心星
+Traceback (most recent call last):
+  File "d:\software\PyCharm 2025.3.5\file_saves\genmini\comprehensive_test.py", line 1059, in <module>
+    test_styles()
+  File "d:\software\PyCharm 2025.3.5\file_saves\genmini\comprehensive_test.py", line 1047, in test_styles
+    assert "★" in html, f"level={level} 应包含实心星"
+           ^^^^^^^^^^^
+AssertionError: level=0 应包含实心星
+
+============================================================
+🔄 模块 8：session_state.py — 会话状态管理
+============================================================
+  [PASS] session_state导入
+  [PASS] init_session_state 初始化 -- 共 8 个 key
+  [PASS] 幂等性测试
+
+============================================================
+🃏 模块 9：question_card.py — 题目卡片组件
+============================================================
+  [PASS] question_card导入
+  [PASS] XSS防护
+  [PASS] None处理
+  [PASS] NaN处理
+  [PASS] 换行处理
+  [PASS] 数字处理
+  [PASS] 特殊字符转义
+
+============================================================
+⏱️ 模块 10：timer.py & metrics.py — 组件测试
+============================================================
+  [PASS] timer导入
+  [PASS] metrics导入
+
+============================================================
+🔗 模块 11：跨模块集成测试
+============================================================
+  [PASS] 集成: 评分 -- score=28, method=local
+  [PASS] 集成: 保存错题
+  [PASS] 集成: 读取验证
+  [PASS] 集成: 删除验证
+
+============================================================
+🛡️ 模块 12：边界条件和异常处理测试
+============================================================
+  [PASS] 超长用户答案 -- score=17
+  [PASS] Unicode emoji -- score=91
+  [PASS] SQL注入防护
+  [PASS] 多个JSON取含score的
+  [PASS] 嵌套JSON -- score=70
+  [PASS] 空白字符容错 -- result=(60, 'ok')
+
+============================================================
+测试汇总报告
+============================================================
+
+  总测试数: 130
+  通过: 128
+  失败: 0
+  警告: 2
+  信息: 0
+
+----------------------------------------
+警告详情:
+  - 停用词过滤: 停用词集合大小: 6
+  - get_categories_from_db: DB分类: 0 个
+
+============================================================
+测试完成!
+============================================================

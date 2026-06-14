@@ -1,0 +1,16 @@
+﻿python : Traceback (most recent call last):
+所在位置 行:1 字符: 36
++ ... v:PYTHONIOENCODING='utf-8'; python comprehensive_test.py 2>&1 | Out-F ...
++                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last) 
+   ::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "D:\software\PyCharm 2025.3.5\file_saves\genmini\comprehensive_test.py",
+ line 11, in <module>
+    _output_file = open(os.path.join(os.path.dirname(os.path.abspath(__file__))
+, "test_output_comprehensive.txt"), "w", encoding="utf-8")
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+PermissionError: [Errno 13] Permission denied: 'D:\\software\\PyCharm 2025.3.5\
+\file_saves\\genmini\\test_output_comprehensive.txt'

@@ -1,3 +1,4 @@
+# Python 缓存
 __pycache__/
 *.pyc
 *.pyo
@@ -5,32 +6,13 @@ __pycache__/
 dist/
 build/
 
-# 用户数据（每个人不同，不上传）
-data/users/
-data/users.db
+# 本地数据库文件（运行时生成，不需要上传）
 data/app.db
+data/users.db
+data/users/
 
-# 数据库配置（含密码，不上传）
-utils/db_config.py
-db_config.py
+# Streamlit Cloud 实际密钥文件
 .streamlit/secrets.toml
-
-# 测试和调试脚本（不需要上传）
-test_*.py
-check_*.py
-debug_*.py
-fix_*.py
-analyze_*.py
-comprehensive_test.py
-import_to_tidb.py
-migrate_to_tidb_cloud.py
-*.sql
-!tidb_schema.sql
-
-# 测试输出文件
-*.txt
-!requirements.txt
-!使用说明.txt
 
 # IDE
 .idea/
@@ -40,7 +22,3 @@ migrate_to_tidb_cloud.py
 # 系统文件
 .DS_Store
 Thumbs.db
-
-# 性能优化说明
-TiDB性能优化说明.md
-项目总结.md
