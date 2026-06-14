@@ -7,6 +7,7 @@ import json
 from datetime import datetime, timedelta
 import streamlit as st
 import pandas as pd
+from utils import db
 from utils.data_loader import get_user_data_dir, ensure_user_data_dir
 
 DEFAULT_GOALS = {
@@ -16,11 +17,33 @@ DEFAULT_GOALS = {
 }
 
 
+def _get_username() -> str:
+    return st.session_state.get("username", "")
+
+
 def _get_goals_file() -> str:
     return os.path.join(get_user_data_dir(), "goals.json")
 
 
 def load_goals() -> dict:
+    username = _get_username()
+    if username:
+        try:
+            db.init_tables()
+            rows = db.execute(
+                "SELECT daily_questions, weekly_questions, daily_review FROM user_goals WHERE username = %s",
+                (username,), fetch=True,
+            )
+            if rows:
+                r = rows[0]
+                return {
+                    "daily_questions": int(r.get("daily_questions", 20)),
+                    "weekly_questions": int(r.get("weekly_questions", 100)),
+                    "daily_review": int(r.get("daily_review", 5)),
+                }
+        except Exception:
+            pass
+
     goals_file = _get_goals_file()
     if os.path.exists(goals_file):
         try:
@@ -35,6 +58,30 @@ def load_goals() -> dict:
 
 
 def save_goals(goals: dict):
+    username = _get_username()
+    if username:
+        try:
+            db.init_tables()
+            if db.is_mysql():
+                db.execute(
+                    "INSERT INTO user_goals (username, daily_questions, weekly_questions, daily_review) "
+                    "VALUES (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE "
+                    "daily_questions = VALUES(daily_questions), weekly_questions = VALUES(weekly_questions), "
+                    "daily_review = VALUES(daily_review)",
+                    (username, goals.get("daily_questions", 20),
+                     goals.get("weekly_questions", 100), goals.get("daily_review", 5)),
+                )
+            else:
+                db.execute(
+                    "INSERT OR REPLACE INTO user_goals (username, daily_questions, weekly_questions, daily_review) "
+                    "VALUES (%s, %s, %s, %s)",
+                    (username, goals.get("daily_questions", 20),
+                     goals.get("weekly_questions", 100), goals.get("daily_review", 5)),
+                )
+            return
+        except Exception:
+            pass
+
     ensure_user_data_dir()
     goals_file = _get_goals_file()
     with open(goals_file, "w", encoding="utf-8") as f:

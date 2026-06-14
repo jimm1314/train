@@ -10,11 +10,14 @@ import plotly.express as px
 from datetime import datetime
 from utils.session_state import init_session_state
 from utils.styles import inject_global_styles
-from utils.data_loader import DATA_DIR
 from utils.auth import check_admin, get_all_users, delete_user
+from utils import db
 
 # 初始化
-st.set_page_config(page_title="管理员面板", page_icon="👑", layout="wide")
+try:
+    st.set_page_config(page_title="管理员面板", page_icon="👑", layout="wide")
+except Exception:
+    pass
 check_admin()
 init_session_state()
 inject_global_styles()
@@ -22,46 +25,51 @@ inject_global_styles()
 st.title("👑 管理员面板")
 st.markdown("---")
 
-# ==========================================
-# 用户数据目录
-# ==========================================
-USERS_DIR = os.path.join(DATA_DIR, "users")
-
-
-def _read_user_csv(username: str, filename: str) -> pd.DataFrame:
-    """读取指定用户的 CSV 文件"""
-    fpath = os.path.join(USERS_DIR, username, filename)
-    if os.path.exists(fpath):
-        try:
-            return pd.read_csv(fpath, encoding="utf-8-sig")
-        except Exception:
-            pass
-    return pd.DataFrame()
+def _read_user_table(username: str, table: str) -> pd.DataFrame:
+    column_map = {
+        "review_book.csv": (
+            "SELECT date_str AS 日期, question AS 问题, answer AS 参考, note AS 备注, "
+            "mastery AS 掌握度, review_count AS 复习次数, tags AS 标签, attribution AS 归因, "
+            "next_review, ease_factor, review_interval AS `interval`, repetitions "
+            "FROM review_book WHERE username = %s"
+        ),
+        "study_log.csv": (
+            "SELECT date_str AS 日期, count AS 刷题数, activity_type AS 活动类型 FROM study_log WHERE username = %s"
+        ),
+        "checkin_log.csv": (
+            "SELECT date_str AS 日期, checkin_time AS 签到时间, activity_type AS 活动类型 FROM checkin_log WHERE username = %s"
+        ),
+        "dictation_log.csv": (
+            "SELECT date_str AS 日期, question AS 问题, reference_answer AS 参考答案, my_answer AS 我的默写 FROM dictation_log WHERE username = %s"
+        ),
+    }
+    sql = column_map.get(table)
+    if not sql:
+        return pd.DataFrame()
+    try:
+        db.init_tables()
+        return db.query_df(sql, (username,))
+    except Exception:
+        return pd.DataFrame()
 
 
 def _get_user_data_size(username: str) -> str:
-    """获取用户数据目录大小"""
-    user_dir = os.path.join(USERS_DIR, username)
-    if not os.path.exists(user_dir):
-        return "0 B"
-    total = 0
-    for f in os.listdir(user_dir):
-        fpath = os.path.join(user_dir, f)
-        if os.path.isfile(fpath):
-            total += os.path.getsize(fpath)
-    if total < 1024:
-        return f"{total} B"
-    elif total < 1024 * 1024:
-        return f"{total / 1024:.1f} KB"
-    else:
-        return f"{total / 1024 / 1024:.1f} MB"
+    try:
+        db.init_tables()
+        total = 0
+        for tbl in ["review_book", "study_log", "checkin_log", "dictation_log"]:
+            rows = db.execute(f"SELECT COUNT(*) AS cnt FROM {tbl} WHERE username = %s", (username,), fetch=True)
+            if rows:
+                total += rows[0]["cnt"]
+        return f"{total} 条记录"
+    except Exception:
+        return "0 条记录"
 
 
 def _get_user_stats(username: str) -> dict:
-    """获取单个用户的统计数据"""
-    review_df = _read_user_csv(username, "review_book.csv")
-    study_log = _read_user_csv(username, "study_log.csv")
-    checkin_df = _read_user_csv(username, "checkin_log.csv")
+    review_df = _read_user_table(username, "review_book.csv")
+    study_log = _read_user_table(username, "study_log.csv")
+    checkin_df = _read_user_table(username, "checkin_log.csv")
 
     total_drawn = 0
     if not study_log.empty and "刷题数" in study_log.columns:
@@ -153,7 +161,7 @@ tab_review, tab_study, tab_checkin, tab_dictation, tab_manage = st.tabs([
 
 # ---- 错题本 Tab ----
 with tab_review:
-    review_df = _read_user_csv(selected_user, "review_book.csv")
+    review_df = _read_user_table(selected_user, "review_book.csv")
     if review_df.empty:
         st.info("该用户暂无错题记录。")
     else:
@@ -204,7 +212,7 @@ with tab_review:
 
 # ---- 学习日志 Tab ----
 with tab_study:
-    study_log = _read_user_csv(selected_user, "study_log.csv")
+    study_log = _read_user_table(selected_user, "study_log.csv")
     if study_log.empty:
         st.info("该用户暂无学习记录。")
     else:
@@ -240,7 +248,7 @@ with tab_study:
 
 # ---- 签到记录 Tab ----
 with tab_checkin:
-    checkin_df = _read_user_csv(selected_user, "checkin_log.csv")
+    checkin_df = _read_user_table(selected_user, "checkin_log.csv")
     if checkin_df.empty:
         st.info("该用户暂无签到记录。")
     else:
@@ -263,7 +271,7 @@ with tab_checkin:
 
 # ---- 默写记录 Tab ----
 with tab_dictation:
-    dictation_df = _read_user_csv(selected_user, "dictation_log.csv")
+    dictation_df = _read_user_table(selected_user, "dictation_log.csv")
     if dictation_df.empty:
         st.info("该用户暂无默写记录。")
     else:

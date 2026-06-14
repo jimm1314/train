@@ -4,14 +4,18 @@
 """
 import streamlit as st
 
-st.set_page_config(page_title="设置", page_icon="⚙️", layout="wide")
+try:
+    st.set_page_config(page_title="设置", page_icon="⚙️", layout="wide")
+except Exception:
+    pass
 
 import pandas as pd
 import os
 from datetime import datetime
 from utils.session_state import init_session_state
 from utils.styles import inject_global_styles
-from utils.data_loader import DATA_DIR, _resolve_data_folder, get_review_file, get_study_log_file, get_user_data_dir, load_question_banks
+from utils import db
+from utils.data_loader import _resolve_data_folder, load_question_banks
 from utils.auth import check_auth, get_current_user
 from utils.goal_manager import load_goals, save_goals
 
@@ -26,21 +30,10 @@ st.title("⚙️ 系统设置")
 # ==========================================
 st.markdown("### 📁 数据路径")
 data_folder = _resolve_data_folder()
-user_data_folder = get_user_data_dir()
 
 st.code(f"题库目录: {data_folder}", language=None)
-st.code(f"个人数据: {user_data_folder}", language=None)
-
-if os.path.exists(user_data_folder):
-    files = os.listdir(user_data_folder)
-    st.markdown(f"个人数据目录下共 **{len(files)}** 个文件：")
-    for f in files:
-        fpath = os.path.join(user_data_folder, f)
-        size = os.path.getsize(fpath)
-        size_str = f"{size / 1024:.1f} KB" if size < 1024 * 1024 else f"{size / 1024 / 1024:.1f} MB"
-        st.markdown(f"- 📄 `{f}` ({size_str})")
-else:
-    st.info("个人数据目录尚未创建，开始使用后会自动生成。")
+db_type = "TiDB/MySQL" if db.is_mysql() else "SQLite"
+st.code(f"数据库类型: {db_type}", language=None)
 
 st.markdown("---")
 
@@ -49,9 +42,9 @@ st.markdown("---")
 # ==========================================
 st.markdown("### 📝 错题本管理")
 
-review_file = get_review_file()
-if os.path.exists(review_file):
-    review_df = pd.read_csv(review_file, encoding="utf-8-sig")
+from utils.review_manager import _read_review_file
+review_df = _read_review_file()
+if not review_df.empty:
     st.metric("错题本条目数", f"{len(review_df)} 条")
 
     col1, col2 = st.columns(2)
@@ -83,10 +76,17 @@ if os.path.exists(review_file):
                     st.dataframe(import_df.head(10), use_container_width=True)
 
                     if st.button("✅ 确认导入（合并到现有错题本）", use_container_width=True):
-                        merged = pd.concat([review_df, import_df], ignore_index=True)
-                        merged = merged.drop_duplicates(subset=["问题"], keep="last")
-                        merged.to_csv(review_file, index=False, encoding="utf-8-sig")
-                        st.success(f"导入完成！当前错题本共 {len(merged)} 条。")
+                        from utils.review_manager import save_to_review_book
+                        for _, row in import_df.iterrows():
+                            save_to_review_book(
+                                str(row.get("问题", "")),
+                                str(row.get("参考", "")),
+                                str(row.get("备注", "")),
+                                mastery=int(row.get("掌握度", 0)) if pd.notna(row.get("掌握度", 0)) else 0,
+                                tags=str(row.get("标签", "")),
+                                attribution=str(row.get("归因", "")),
+                            )
+                        st.success("导入完成！")
                         st.rerun()
                 else:
                     st.error("CSV 文件必须包含「问题」和「参考」两列！")
@@ -95,13 +95,14 @@ if os.path.exists(review_file):
 
     st.markdown("---")
 
-    # 危险操作
     st.markdown("### ⚠️ 危险操作")
     with st.expander("🗑️ 清空错题本（不可恢复）"):
         st.warning("此操作将永久删除所有错题记录，且无法恢复！")
         confirm_text = st.text_input("请输入「确认清空」来执行操作：", key="confirm_clear")
         if st.button("🗑️ 执行清空", type="primary", disabled=(confirm_text != "确认清空")):
-            os.remove(review_file)
+            username = st.session_state.get("username", "")
+            if username:
+                db.execute("DELETE FROM review_book WHERE username = %s", (username,))
             load_question_banks.clear()
             st.success("错题本已清空！")
             st.rerun()
@@ -114,17 +115,19 @@ st.markdown("---")
 # 学习记录管理
 # ==========================================
 st.markdown("### 📊 学习记录管理")
-study_log_path = get_study_log_file()
+from utils.review_manager import load_study_log
+study_df = load_study_log()
 
-if os.path.exists(study_log_path):
-    study_df = pd.read_csv(study_log_path, encoding="utf-8-sig")
+if not study_df.empty:
     st.metric("学习记录条数", f"{len(study_df)} 条")
 
     with st.expander("🗑️ 清空学习记录"):
         st.warning("此操作将永久清空所有学习记录，且无法恢复！")
         confirm_log = st.text_input("请输入「确认清空」来执行操作：", key="confirm_clear_log")
         if st.button("🗑️ 执行清空", disabled=(confirm_log != "确认清空"), key="btn_clear_log"):
-            os.remove(study_log_path)
+            username = st.session_state.get("username", "")
+            if username:
+                db.execute("DELETE FROM study_log WHERE username = %s", (username,))
             st.success("学习记录已清空！")
             st.rerun()
 else:
@@ -198,10 +201,11 @@ has_gemini = bool(os.environ.get("GEMINI_API_KEY"))
 has_openai = bool(os.environ.get("OPENAI_API_KEY"))
 try:
     if not has_gemini:
-        has_gemini = bool(st.secrets.get("GEMINI_API_KEY"))
+        has_gemini = bool(st.secrets.get("GEMINI_API_KEY", ""))
     if not has_openai:
-        has_openai = bool(st.secrets.get("OPENAI_API_KEY"))
+        has_openai = bool(st.secrets.get("OPENAI_API_KEY", ""))
 except Exception:
+    # 没有secrets文件时忽略错误
     pass
 
 col_ai0, col_ai1, col_ai2 = st.columns(3)

@@ -4,7 +4,10 @@
 """
 import streamlit as st
 
-st.set_page_config(page_title="模拟面试", page_icon="🎤", layout="wide")
+try:
+    st.set_page_config(page_title="模拟面试", page_icon="🎤", layout="wide")
+except Exception:
+    pass
 
 import random
 from datetime import datetime
@@ -83,9 +86,6 @@ if st.session_state.interview_state == INTERVIEW_STATES["setup"]:
             st.error("题库为空，请先添加题目。")
             st.stop()
 
-        available_files = sorted(df["来源文件"].dropna().unique().tolist()) if "来源文件" in df.columns else []
-        selected_files = []
-
         source_mode = st.radio(
             "题目来源",
             ["随机抽题", "优先复习错题"],
@@ -93,19 +93,11 @@ if st.session_state.interview_state == INTERVIEW_STATES["setup"]:
         )
 
         st.markdown("---")
-        st.markdown("#### 📁 题库文件筛选")
+        st.markdown("#### 🎯 题目分类筛选")
 
-        if available_files:
-            selected_files = st.multiselect(
-                "选择题库文件（不选则使用全部）",
-                available_files,
-                default=[],
-                help="可以针对特定文件的题目进行模拟面试",
-            )
-            if selected_files:
-                df = df[df["来源文件"].isin(selected_files)]
-        else:
-            st.caption("当前题库没有来源文件信息")
+        categories = get_knowledge_categories(df)
+        selected_cats = st.multiselect("选择题目分类（不选则使用全部）", categories, default=[],
+                                       help="可以针对特定分类的题目进行模拟面试")
 
         st.markdown("---")
         st.markdown("#### ⚙️ 面试参数")
@@ -113,9 +105,6 @@ if st.session_state.interview_state == INTERVIEW_STATES["setup"]:
         num_questions = st.slider("题目数量", min_value=3, max_value=20, value=5)
         time_per_question = st.slider("每题限时（分钟）", min_value=1, max_value=15, value=5)
         st.session_state.interview_time_limit = time_per_question
-
-        categories = get_knowledge_categories(df)
-        selected_cats = st.multiselect("按知识点筛选（不选则随机）", categories, default=[])
 
         if not df.empty and "难度" in df.columns:
             difficulties = df["难度"].dropna().unique().tolist()
@@ -138,12 +127,12 @@ if st.session_state.interview_state == INTERVIEW_STATES["setup"]:
         est_total = actual_count * time_per_question
         st.metric("预计时长", f"约 {est_total} 分钟")
 
-        if selected_files:
+        if selected_cats:
             st.markdown("---")
-            st.markdown("**📁 已选文件：**")
-            for fname in selected_files:
-                file_count = len(df[df["来源文件"] == fname]) if "来源文件" in df.columns else 0
-                st.markdown(f"- `{fname}` ({file_count} 题)")
+            st.markdown("**🎯 已选分类：**")
+            for cat in selected_cats:
+                cat_count = len(filtered[filtered["知识点"] == cat]) if "知识点" in filtered.columns else 0
+                st.markdown(f"- `{cat}` ({cat_count} 题)")
 
     st.markdown("---")
 

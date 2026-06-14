@@ -5,14 +5,17 @@
 """
 import streamlit as st
 
-st.set_page_config(page_title="默写模式", page_icon="✍️", layout="wide")
+try:
+    st.set_page_config(page_title="默写模式", page_icon="✍️", layout="wide")
+except Exception:
+    pass
 
 import pandas as pd
-import os
 from datetime import datetime
 from utils.session_state import init_session_state
 from utils.styles import inject_global_styles, render_difficulty_tag, render_knowledge_tag
-from utils.data_loader import get_filtered_questions, get_knowledge_categories, get_dictation_file, ensure_user_data_dir
+from utils.data_loader import get_filtered_questions, get_knowledge_categories
+from utils import db
 from utils.review_manager import save_to_review_book, log_study_session
 from utils.auth import check_auth
 from utils.ai_scorer import score_answer, render_score_result
@@ -33,45 +36,158 @@ st.markdown("""
     </div>
     <div style="color: #94a3b8; font-size: 0.9rem; line-height: 1.6;">
         <p>🧠 <strong>主动回忆</strong>：先凭记忆默写，再对照答案，加深理解</p>
-        <p>📝 <strong>自动保存</strong>：所有默写内容自动保存，方便回顾对比</p>
+        <p>💾 <strong>即时保存</strong>：每答一题可单独保存，刷新页面也不会丢失</p>
         <p>📊 <strong>历史记录</strong>：查看历史默写记录，追踪学习进步</p>
         <p>📥 <strong>导出功能</strong>：支持导出默写记录，便于整理复习</p>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("看到题目后**先凭记忆默写**，再对照参考答案查漏补缺。所有默写内容自动保存！")
+st.markdown("看到题目后**先凭记忆默写**，再点击「💾 保存」按钮保存，刷新页面也不会丢失！")
 
-# 默写记录文件（动态获取当前用户路径）
 
+# ==========================================
+# 数据库操作函数
+# ==========================================
 
 def save_dictation(question: str, reference: str, my_answer: str):
-    """保存一条默写记录"""
-    dictation_file = get_dictation_file()
+    """保存单条默写记录到数据库"""
+    username = st.session_state.get("username", "")
+    if not username:
+        return False
     today_str = datetime.now().strftime("%Y-%m-%d")
-    new_row = pd.DataFrame([{
-        "日期": today_str,
-        "问题": question,
-        "参考答案": reference,
-        "我的默写": my_answer,
-    }])
+    try:
+        db.init_tables()
+        db.execute(
+            "INSERT INTO dictation_log (username, date_str, question, reference_answer, my_answer) VALUES (%s, %s, %s, %s, %s)",
+            (username, today_str, question, reference, my_answer),
+        )
+        return True
+    except Exception as e:
+        st.warning(f"保存默写记录失败: {e}")
+        return False
 
-    if os.path.exists(dictation_file):
-        exist_df = pd.read_csv(dictation_file, encoding="utf-8-sig")
-        updated = pd.concat([exist_df, new_row], ignore_index=True)
-    else:
-        updated = new_row
 
-    ensure_user_data_dir()
-    updated.to_csv(dictation_file, index=False, encoding="utf-8-sig")
+def save_dictation_draft(question: str, reference: str, my_answer: str, draft_key: str):
+    """保存/更新默写草稿（同一个draft_key会覆盖）"""
+    username = st.session_state.get("username", "")
+    if not username:
+        return False
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    try:
+        db.init_tables()
+        # 先检查是否已存在该草稿
+        existing = db.execute(
+            "SELECT id FROM dictation_drafts WHERE username = %s AND draft_key = %s",
+            (username, draft_key), fetch=True,
+        )
+        if existing:
+            # 更新已有草稿
+            db.execute(
+                "UPDATE dictation_drafts SET my_answer = %s, updated_at = %s WHERE username = %s AND draft_key = %s",
+                (my_answer, today_str, username, draft_key),
+            )
+        else:
+            # 插入新草稿
+            db.execute(
+                "INSERT INTO dictation_drafts (username, date_str, question, reference_answer, my_answer, draft_key) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
+                (username, today_str, question, reference, my_answer, draft_key),
+            )
+        return True
+    except Exception as e:
+        print(f"[Dictation] save_dictation_draft 失败: {e}")
+        return False
+
+
+def load_dictation_drafts() -> dict:
+    """加载当前用户的所有草稿，返回 {draft_key: {question, reference, answer}}"""
+    username = st.session_state.get("username", "")
+    if not username:
+        return {}
+    try:
+        db.init_tables()
+        rows = db.execute(
+            "SELECT draft_key, question, reference_answer, my_answer FROM dictation_drafts WHERE username = %s",
+            (username,), fetch=True,
+        )
+        return {r["draft_key"]: {"question": r["question"], "reference": r["reference_answer"], "answer": r["my_answer"]} for r in rows} if rows else {}
+    except Exception:
+        return {}
+
+
+def delete_dictation_drafts(draft_keys: list):
+    """删除指定的草稿"""
+    username = st.session_state.get("username", "")
+    if not username or not draft_keys:
+        return
+    try:
+        operations = []
+        for key in draft_keys:
+            operations.append((
+                "DELETE FROM dictation_drafts WHERE username = %s AND draft_key = %s",
+                (username, key),
+            ))
+        db.execute_transaction(operations)
+    except Exception as e:
+        print(f"[Dictation] delete_dictation_drafts 失败: {e}")
 
 
 def load_dictation_log() -> pd.DataFrame:
-    """加载默写记录"""
-    dictation_file = get_dictation_file()
-    if os.path.exists(dictation_file):
-        return pd.read_csv(dictation_file, encoding="utf-8-sig")
-    return pd.DataFrame(columns=["日期", "问题", "参考答案", "我的默写"])
+    """加载默写历史记录"""
+    username = st.session_state.get("username", "")
+    if not username:
+        return pd.DataFrame(columns=["日期", "问题", "参考答案", "我的默写"])
+    try:
+        db.init_tables()
+        sql = "SELECT date_str AS 日期, question AS 问题, reference_answer AS 参考答案, my_answer AS 我的默写 FROM dictation_log WHERE username = %s"
+        df = db.query_df(sql, (username,))
+        if df.empty:
+            return pd.DataFrame(columns=["日期", "问题", "参考答案", "我的默写"])
+        return df
+    except Exception:
+        return pd.DataFrame(columns=["日期", "问题", "参考答案", "我的默写"])
+
+
+def ensure_drafts_table():
+    """确保草稿表存在"""
+    try:
+        db.init_tables()
+        # 检查 dictation_drafts 表是否存在
+        if db.is_mysql():
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS dictation_drafts (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    username VARCHAR(100) NOT NULL,
+                    date_str VARCHAR(20) NOT NULL,
+                    question TEXT NOT NULL,
+                    reference_answer TEXT,
+                    my_answer TEXT,
+                    draft_key VARCHAR(200) NOT NULL,
+                    updated_at VARCHAR(20),
+                    UNIQUE KEY uk_user_key (username, draft_key)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
+        else:
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS dictation_drafts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL,
+                    date_str TEXT NOT NULL,
+                    question TEXT NOT NULL,
+                    reference_answer TEXT,
+                    my_answer TEXT,
+                    draft_key TEXT NOT NULL,
+                    updated_at TEXT,
+                    UNIQUE(username, draft_key)
+                )
+            """)
+    except Exception as e:
+        print(f"[Dictation] ensure_drafts_table: {e}")
+
+
+# 初始化草稿表
+ensure_drafts_table()
 
 
 # ==========================================
@@ -86,6 +202,7 @@ defaults = {
     "dictation_scores": [],
     "dictation_feedbacks": [],
     "dictation_methods": [],
+    "dictation_saved_flags": [],  # 记录每题是否已保存
 }
 for k, v in defaults.items():
     st.session_state.setdefault(k, v)
@@ -137,6 +254,26 @@ with st.sidebar:
     dict_log = load_dictation_log()
     st.metric("累计默写", f"{len(dict_log)} 次")
 
+    # 草稿统计
+    drafts = load_dictation_drafts()
+    if drafts:
+        st.metric("未提交草稿", f"{len(drafts)} 条")
+        if st.button("📥 恢复上次草稿", use_container_width=True):
+            st.session_state.dictation_questions = [drafts[k]["question"] for k in drafts]
+            st.session_state.dictation_answers = [drafts[k]["reference"] for k in drafts]
+            st.session_state.dictation_meta = [{} for _ in drafts]
+            st.session_state.dictation_submitted = [False] * len(drafts)
+            st.session_state.dictation_show_answer = [False] * len(drafts)
+            st.session_state.dictation_scores = []
+            st.session_state.dictation_feedbacks = []
+            st.session_state.dictation_methods = []
+            st.session_state.dictation_saved_flags = [False] * len(drafts)
+            # 恢复草稿中的答案到输入框
+            for i, k in enumerate(drafts):
+                st.session_state[f"dictation_input_{i}"] = drafts[k]["answer"]
+            st.rerun()
+
+
 # ==========================================
 # 开始新一轮
 # ==========================================
@@ -146,6 +283,18 @@ with col1:
         if filtered.empty:
             st.error("当前筛选条件下题库为空！")
         else:
+            # 先保存当前未保存的答案为草稿
+            if st.session_state.dictation_questions:
+                for i in range(len(st.session_state.dictation_questions)):
+                    key = f"dictation_input_{i}"
+                    val = st.session_state.get(key, "")
+                    if val and val.strip():
+                        q = st.session_state.dictation_questions[i]
+                        ans = st.session_state.dictation_answers[i]
+                        today = datetime.now().strftime("%Y-%m-%d")
+                        draft_key = f"{today}_{q[:50]}"
+                        save_dictation_draft(q, ans, val, draft_key)
+
             sample_size = min(num_questions, len(filtered))
             sampled = filtered.sample(n=sample_size)
             st.session_state.dictation_questions = sampled["问题"].tolist()
@@ -155,6 +304,14 @@ with col1:
             log_study_session(sample_size, activity="默写")
             st.session_state.dictation_submitted = [False] * sample_size
             st.session_state.dictation_show_answer = [False] * sample_size
+            st.session_state.dictation_scores = []
+            st.session_state.dictation_feedbacks = []
+            st.session_state.dictation_methods = []
+            st.session_state.dictation_saved_flags = [False] * sample_size
+            # 清空输入框
+            for i in range(sample_size):
+                if f"dictation_input_{i}" in st.session_state:
+                    del st.session_state[f"dictation_input_{i}"]
             st.rerun()
 with col2:
     if st.button("📋 查看历史默写", use_container_width=True):
@@ -235,8 +392,13 @@ for i in range(len(st.session_state.dictation_questions)):
     if "知识点" in meta and pd.notna(meta.get("知识点")) and meta.get("知识点") != "未分类":
         tag_html += render_knowledge_tag(str(meta["知识点"]))
 
+    # 已保存标记
+    saved_indicator = ""
+    if i < len(st.session_state.dictation_saved_flags) and st.session_state.dictation_saved_flags[i]:
+        saved_indicator = ' <span style="color: #10b981; font-size: 0.85rem;">✅ 已保存</span>'
+
     st.markdown(
-        f'<div class="question-title">【第 {i + 1} 题】 {safe_format(q)}</div>'
+        f'<div class="question-title">【第 {i + 1} 题】 {safe_format(q)}{saved_indicator}</div>'
         f'<div style="margin-bottom: 8px;">{tag_html}</div>',
         unsafe_allow_html=True,
     )
@@ -249,22 +411,42 @@ for i in range(len(st.session_state.dictation_questions)):
         placeholder="闭上眼睛回忆一下，然后在这里写下来...",
     )
 
-    col1, col2, col3 = st.columns([1, 1, 1])
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
 
     with col1:
         if st.button("💡 查看参考答案", key=f"show_{i}", use_container_width=True):
             st.session_state.dictation_show_answer[i] = True
 
     with col2:
-        if st.button("💾 保存默写", key=f"save_{i}", use_container_width=True):
+        if st.button("💾 保存此题", key=f"save_{i}", use_container_width=True):
             if my_answer.strip():
                 save_dictation(q, ans, my_answer)
+                # 同时删除草稿（已正式保存）
+                today = datetime.now().strftime("%Y-%m-%d")
+                draft_key = f"{today}_{q[:50]}"
+                delete_dictation_drafts([draft_key])
+                # 标记已保存
+                while len(st.session_state.dictation_saved_flags) <= i:
+                    st.session_state.dictation_saved_flags.append(False)
+                st.session_state.dictation_saved_flags[i] = True
                 st.session_state.dictation_submitted[i] = True
-                st.toast(f"✅ 第 {i + 1} 题默写已保存！")
+                st.toast(f"✅ 第 {i + 1} 题已保存到默写记录！刷新页面也不会丢失~")
+                st.rerun()
             else:
                 st.warning("请先写下你的答案再保存哦~")
 
     with col3:
+        # 自动保存草稿按钮
+        if st.button("📝 存为草稿", key=f"draft_{i}", use_container_width=True):
+            if my_answer.strip():
+                today = datetime.now().strftime("%Y-%m-%d")
+                draft_key = f"{today}_{q[:50]}"
+                save_dictation_draft(q, ans, my_answer, draft_key)
+                st.toast(f"📝 第 {i + 1} 题已存为草稿，可从侧边栏恢复")
+            else:
+                st.warning("请先写下你的答案~")
+
+    with col4:
         if st.button("🚩 收藏此题", key=f"collect_{i}", use_container_width=True):
             save_to_review_book(q, ans, my_answer, mastery=0)
             st.toast("✅ 已收藏至错题本！")
@@ -282,17 +464,19 @@ for i in range(len(st.session_state.dictation_questions)):
                 with st.spinner("正在评分..."):
                     s, f, m = score_answer(q, ans, my_answer)
                 while len(st.session_state.dictation_scores) <= i:
-                    st.session_state.dictation_scores.append(0)
+                    st.session_state.dictation_scores.append(None)
                     st.session_state.dictation_feedbacks.append("")
                     st.session_state.dictation_methods.append("local")
                 st.session_state.dictation_scores[i] = s
                 st.session_state.dictation_feedbacks[i] = f
                 st.session_state.dictation_methods[i] = m
+                if m == "local":
+                    st.warning("AI 接口调用失败，已使用本地算法评分。")
                 st.rerun()
             else:
                 st.warning("请先写下你的答案再评分~")
 
-        if i < len(st.session_state.dictation_scores) and st.session_state.dictation_scores[i] > 0:
+        if i < len(st.session_state.dictation_scores) and st.session_state.dictation_scores[i] is not None:
             render_score_result(
                 st.session_state.dictation_scores[i],
                 st.session_state.dictation_feedbacks[i],
@@ -305,14 +489,15 @@ for i in range(len(st.session_state.dictation_questions)):
 # 批量操作
 # ==========================================
 st.markdown("### 📦 批量操作")
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 with col1:
     if st.button("💡 全部显示答案", use_container_width=True):
         st.session_state.dictation_show_answer = [True] * len(st.session_state.dictation_questions)
         st.rerun()
 with col2:
-    if st.button("💾 全部保存默写", use_container_width=True):
+    if st.button("💾 全部保存到记录", use_container_width=True, type="primary"):
         saved_count = 0
+        draft_keys_to_delete = []
         for i in range(len(st.session_state.dictation_questions)):
             key = f"dictation_input_{i}"
             val = st.session_state.get(key, "")
@@ -322,8 +507,39 @@ with col2:
                     st.session_state.dictation_answers[i],
                     val,
                 )
+                # 标记已保存
+                while len(st.session_state.dictation_saved_flags) <= i:
+                    st.session_state.dictation_saved_flags.append(False)
+                st.session_state.dictation_saved_flags[i] = True
+                st.session_state.dictation_submitted[i] = True
+                # 记录要删除的草稿key
+                today = datetime.now().strftime("%Y-%m-%d")
+                draft_key = f"{today}_{st.session_state.dictation_questions[i][:50]}"
+                draft_keys_to_delete.append(draft_key)
                 saved_count += 1
         if saved_count > 0:
-            st.toast(f"✅ 已保存 {saved_count} 条默写记录！")
+            delete_dictation_drafts(draft_keys_to_delete)
+            st.toast(f"✅ 已保存 {saved_count} 条默写记录！刷新不会丢失~")
+            st.rerun()
+        else:
+            st.warning("没有找到已填写的默写内容。")
+with col3:
+    if st.button("📝 全部存为草稿", use_container_width=True):
+        saved_count = 0
+        for i in range(len(st.session_state.dictation_questions)):
+            key = f"dictation_input_{i}"
+            val = st.session_state.get(key, "")
+            if val and val.strip():
+                today = datetime.now().strftime("%Y-%m-%d")
+                draft_key = f"{today}_{st.session_state.dictation_questions[i][:50]}"
+                save_dictation_draft(
+                    st.session_state.dictation_questions[i],
+                    st.session_state.dictation_answers[i],
+                    val,
+                    draft_key,
+                )
+                saved_count += 1
+        if saved_count > 0:
+            st.toast(f"📝 已将 {saved_count} 条答案存为草稿！")
         else:
             st.warning("没有找到已填写的默写内容。")

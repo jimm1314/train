@@ -4,7 +4,10 @@
 """
 import streamlit as st
 
-st.set_page_config(page_title="错题复习", page_icon="📝", layout="wide")
+try:
+    st.set_page_config(page_title="错题复习", page_icon="📝", layout="wide")
+except Exception:
+    pass
 
 from utils.session_state import init_session_state
 from utils.styles import inject_global_styles
@@ -127,8 +130,10 @@ st.markdown("---")
 if filtered.empty:
     st.info("当前筛选条件下没有错题记录。")
 else:
-    # 记录错题复习活动
-    log_study_session(len(filtered), activity="错题复习")
+    # 记录错题复习活动（仅首次进入页面时记录一次，防止重复记录）
+    if not st.session_state.get("_review_page_logged", False):
+        log_study_session(len(filtered), activity="错题复习")
+        st.session_state["_review_page_logged"] = True
     for idx, (_, row) in enumerate(filtered.iterrows()):
         render_review_card(idx + 1, row)
 

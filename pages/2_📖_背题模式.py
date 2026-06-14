@@ -13,7 +13,10 @@ from utils.auth import check_auth
 from components.question_card import safe_format
 
 # 初始化
-st.set_page_config(page_title="背题模式", page_icon="📖", layout="wide")
+try:
+    st.set_page_config(page_title="背题模式", page_icon="📖", layout="wide")
+except Exception:
+    pass
 check_auth()
 init_session_state()
 inject_global_styles()
@@ -49,20 +52,13 @@ with st.sidebar:
     search_keyword = st.text_input("搜索题目或答案", placeholder="输入关键词...", key="背题_search")
 
     st.markdown("---")
-    st.subheader("🎯 筛选条件")
+    st.subheader("🎯 题目分类筛选")
 
     df = get_filtered_questions(force_show_all=force_load)
 
-    # 文件筛选
-    if not df.empty and "来源文件" in df.columns:
-        file_list = ["全部文件"] + sorted(df["来源文件"].unique().tolist())
-        selected_file = st.selectbox("📂 选择文件", file_list)
-    else:
-        selected_file = "全部文件"
-
-    # 知识点筛选
+    # 题目分类筛选（使用数据库的category字段）
     categories = get_knowledge_categories(df)
-    selected_cat = st.selectbox("📋 选择知识点", ["全部"] + categories)
+    selected_cat = st.selectbox("📋 选择题目大类", ["全部"] + categories)
 
     # 难度筛选
     if not df.empty and "难度" in df.columns:
@@ -86,15 +82,13 @@ if search_keyword:
         display_df["参考"].astype(str).str.lower().str.contains(kw, na=False)
     )
     display_df = display_df[mask]
-if selected_file != "全部文件":
-    display_df = display_df[display_df["来源文件"] == selected_file]
 if selected_cat != "全部":
     display_df = display_df[display_df["知识点"] == selected_cat]
 if selected_diff != "全部":
     display_df = display_df[display_df["难度"] == selected_diff]
 
 # 分页重置：用筛选条件的 hash 来检测变化
-filter_key = f"{search_keyword}|{selected_file}|{selected_cat}|{selected_diff}|{per_page}"
+filter_key = f"{search_keyword}|{selected_cat}|{selected_diff}|{per_page}"
 if st.session_state.get("背题_filter_key") != filter_key:
     st.session_state.背题_filter_key = filter_key
     st.session_state.背题_page = 1
@@ -156,9 +150,11 @@ start_idx = (st.session_state.背题_page - 1) * per_page
 end_idx = min(start_idx + per_page, len(display_df))
 page_df = display_df.iloc[start_idx:end_idx]
 
-# 记录背题学习活动
-if len(page_df) > 0:
+# 记录背题学习活动（仅在翻页时记录，防止每次交互重复记录）
+_page_log_key = f"背题_logged_page_{st.session_state.背题_page}"
+if len(page_df) > 0 and not st.session_state.get(_page_log_key, False):
     log_study_session(len(page_df), activity="背题")
+    st.session_state[_page_log_key] = True
 
 for idx, (_, row) in enumerate(page_df.iterrows()):
     global_idx = start_idx + idx + 1

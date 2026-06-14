@@ -4,7 +4,10 @@
 """
 import streamlit as st
 
-st.set_page_config(page_title="学习统计", page_icon="📊", layout="wide")
+try:
+    st.set_page_config(page_title="学习统计", page_icon="📊", layout="wide")
+except Exception:
+    pass
 
 import pandas as pd
 import plotly.express as px

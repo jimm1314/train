@@ -11,6 +11,8 @@ from utils.review_manager import (
     save_to_review_book, update_mastery, increment_review_count,
     update_sm2_after_review, update_attribution, ATTRIBUTION_OPTIONS,
 )
+from utils.ai_scorer import score_answer, render_score_result
+from utils.answer_manager import save_answer, get_answer_history, get_answer_count
 
 
 def safe_format(text) -> str:
@@ -69,9 +71,10 @@ def render_question_card(index: int, row: pd.Series, show_tags: bool = True,
             )
 
             user_note = st.text_area(
-                "✍️ 记录我的理解和总结（选填）",
+                "✍️ 写下你的回答 / 笔记（可用于AI评分）",
                 key=f"note_{index}_{total_key}",
-                height=80,
+                height=100,
+                placeholder="先凭记忆作答，再点击下方「AI 评分」获取反馈...",
             )
 
             attribution = st.selectbox(
@@ -81,8 +84,19 @@ def render_question_card(index: int, row: pd.Series, show_tags: bool = True,
                 key=f"attr_{index}_{total_key}",
             )
 
-            col1, col2 = st.columns(2)
+            col1, col2, col3, col4 = st.columns(4)
             with col1:
+                if st.button("💾 保存我的回答", key=f"save_answer_{index}_{total_key}",
+                             use_container_width=True):
+                    if user_note and user_note.strip():
+                        score_val = st.session_state.get(f"_qcard_score_{index}_{total_key}", 0) or 0
+                        if save_answer(question, answer, user_note, score_val):
+                            st.toast("✅ 回答已保存到数据库！")
+                        else:
+                            st.toast("⚠️ 保存失败，请重试")
+                    else:
+                        st.warning("请先在上面的文本框写下你的回答~")
+            with col2:
                 if st.button("🚩 保存至错题本", key=f"save_{index}_{total_key}",
                              use_container_width=True):
                     save_to_review_book(
@@ -90,10 +104,64 @@ def render_question_card(index: int, row: pd.Series, show_tags: bool = True,
                         mastery=mastery, attribution=attribution,
                     )
                     st.toast("✅ 已保存至错题本！")
-            with col2:
-                if st.button("✅ 已掌握，不保存", key=f"skip_{index}_{total_key}",
+            with col3:
+                # 查看历史回答按钮
+                history_count = get_answer_count(question)
+                history_label = f"📜 历史回答 ({history_count})" if history_count > 0 else "📜 历史回答"
+                if st.button(history_label, key=f"history_{index}_{total_key}",
                              use_container_width=True):
-                    st.toast("👍 已跳过，继续保持！")
+                    st.session_state[f"_show_history_{index}_{total_key}"] = not st.session_state.get(f"_show_history_{index}_{total_key}", False)
+            with col4:
+                if st.button("🤖 AI 评分", key=f"ai_score_{index}_{total_key}",
+                             use_container_width=True):
+                    if user_note and user_note.strip():
+                        with st.spinner("正在评分..."):
+                            s, f, m = score_answer(str(question), str(answer), user_note)
+                        score_key = f"_qcard_score_{index}_{total_key}"
+                        feedback_key = f"_qcard_feedback_{index}_{total_key}"
+                        method_key = f"_qcard_method_{index}_{total_key}"
+                        st.session_state[score_key] = s
+                        st.session_state[feedback_key] = f
+                        st.session_state[method_key] = m
+                        if m == "local":
+                            st.warning("AI 接口调用失败，已使用本地算法评分。")
+                        st.rerun()
+                    else:
+                        st.warning("请先在上面的文本框写下你的回答，再点击评分~")
+
+            # 显示AI评分结果
+            score_key = f"_qcard_score_{index}_{total_key}"
+            if score_key in st.session_state and st.session_state[score_key] is not None:
+                render_score_result(
+                    st.session_state[score_key],
+                    st.session_state[f"_qcard_feedback_{index}_{total_key}"],
+                    st.session_state[f"_qcard_method_{index}_{total_key}"],
+                )
+
+            # 显示历史回答
+            history_key = f"_show_history_{index}_{total_key}"
+            if st.session_state.get(history_key, False):
+                st.markdown("---")
+                st.markdown("#### 📜 历史回答记录")
+                history = get_answer_history(question)
+                if history:
+                    for h_idx, h in enumerate(history):
+                        created = h.get("created_at", "未知时间")
+                        score_val = h.get("score", 0)
+                        score_badge = f" | 🏆 {score_val}分" if score_val > 0 else ""
+                        st.markdown(
+                            f'<div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.15); '
+                            f'border-radius: 10px; padding: 12px; margin: 8px 0;">'
+                            f'<div style="color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">'
+                            f'🕐 第 {h_idx + 1} 次回答 · {created}{score_badge}</div>'
+                            f'<div style="color: #e2e8f0; font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap;">'
+                            f'{html_mod.escape(h["user_answer"])}</div>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+                else:
+                    st.info("暂无历史回答记录，点击「💾 保存我的回答」开始记录吧！")
+                st.markdown("")
 
     st.markdown("")
 
@@ -157,7 +225,15 @@ def render_review_card(index: int, row: pd.Series):
         )
         st.markdown("")
 
-        col1, col2 = st.columns(2)
+        # AI 评分区域
+        review_answer = st.text_area(
+            "✍️ 写下你的回忆答案（可用于AI评分）",
+            key=f"review_answer_{index}",
+            height=100,
+            placeholder="先凭记忆作答，再点击「AI 评分」获取反馈...",
+        )
+
+        col1, col2, col3 = st.columns(3)
         with col1:
             new_mastery = st.selectbox(
                 "⭐ 更新掌握度",
@@ -175,6 +251,28 @@ def render_review_card(index: int, row: pd.Series):
                 update_sm2_after_review(question, new_mastery)
                 st.toast("✅ 复习记录已更新！")
                 st.rerun()
+        with col3:
+            if st.button("🤖 AI 评分", key=f"review_ai_score_{index}",
+                         use_container_width=True):
+                if review_answer and review_answer.strip():
+                    with st.spinner("正在评分..."):
+                        s, f, m = score_answer(str(question), str(answer), review_answer)
+                    st.session_state[f"_review_score_{index}"] = s
+                    st.session_state[f"_review_feedback_{index}"] = f
+                    st.session_state[f"_review_method_{index}"] = m
+                    if m == "local":
+                        st.warning("AI 接口调用失败，已使用本地算法评分。")
+                    st.rerun()
+                else:
+                    st.warning("请先写下你的回忆答案，再点击评分~")
+
+        # 显示AI评分结果
+        if f"_review_score_{index}" in st.session_state and st.session_state[f"_review_score_{index}"] is not None:
+            render_score_result(
+                st.session_state[f"_review_score_{index}"],
+                st.session_state[f"_review_feedback_{index}"],
+                st.session_state[f"_review_method_{index}"],
+            )
 
         new_attr = st.selectbox(
             "🏷️ 更新归因分类",

@@ -5,6 +5,8 @@ AI 答案评分模块
 """
 import os
 import re
+import json
+import traceback
 import difflib
 import streamlit as st
 
@@ -55,6 +57,57 @@ def _extract_keywords(text: str) -> set:
             if len(w) >= 2 and w not in ALL_STOPWORDS:
                 keywords.add(w)
     return keywords
+
+
+def _extract_json_objects(text: str) -> list[str]:
+    """提取文本中所有平衡花括号的 JSON 字符串（支持嵌套）"""
+    results = []
+    i = 0
+    while i < len(text):
+        if text[i] == '{':
+            depth = 0
+            in_string = False
+            escape_next = False
+            for j in range(i, len(text)):
+                c = text[j]
+                if escape_next:
+                    escape_next = False
+                    continue
+                if c == '\\' and in_string:
+                    escape_next = True
+                    continue
+                if c == '"' and not escape_next:
+                    in_string = not in_string
+                if not in_string:
+                    if c == '{':
+                        depth += 1
+                    elif c == '}':
+                        depth -= 1
+                        if depth == 0:
+                            results.append(text[i:j+1])
+                            break
+            i = j + 1 if depth == 0 else i + 1
+        else:
+            i += 1
+    return results
+
+
+def _parse_score_response(text: str) -> tuple[int, str] | None:
+    """从 API 返回文本中提取 score 和 feedback，兼容多种格式（包括嵌套 JSON）"""
+    # 优先从 ```json ... ``` 代码块中提取
+    code_block = re.search(r'```(?:json)?\s*(.*?)\s*```', text, re.DOTALL)
+    search_text = code_block.group(1) if code_block else text
+
+    for json_str in _extract_json_objects(search_text):
+        try:
+            data = json.loads(json_str)
+            if isinstance(data, dict) and "score" in data:
+                score = int(data["score"])
+                feedback = str(data.get("feedback", "评分完成"))
+                return max(0, min(100, score)), feedback
+        except (json.JSONDecodeError, ValueError, TypeError):
+            continue
+    return None
 
 
 def _local_score(reference: str, user_answer: str) -> tuple[int, str]:
@@ -124,13 +177,17 @@ def _try_mimo_score(question: str, reference: str, user_answer: str) -> tuple[in
         if resp.status_code == 200:
             result = resp.json()
             text = result["choices"][0]["message"]["content"]
-            import json as _json
-            m = re.search(r'\{.*\}', text, re.DOTALL)
-            if m:
-                data = _json.loads(m.group())
-                return int(data.get("score", 50)), str(data.get("feedback", "评分完成"))
-    except Exception:
-        pass
+            parsed = _parse_score_response(text)
+            if parsed:
+                return parsed
+            print(f"[AI评分] MIMO 返回内容无法解析: {text[:200]}")
+        else:
+            print(f"[AI评分] MIMO API 错误: status={resp.status_code}, body={resp.text[:200]}")
+    except ImportError:
+        print("[AI评分] requests 库未安装")
+    except Exception as e:
+        print(f"[AI评分] MIMO API 异常: {e}")
+        traceback.print_exc()
     return None
 
 
@@ -160,13 +217,14 @@ def _try_gemini_score(question: str, reference: str, user_answer: str) -> tuple[
         if resp.status_code == 200:
             result = resp.json()
             text = result["candidates"][0]["content"]["parts"][0]["text"]
-            import json as _json
-            m = re.search(r'\{.*\}', text, re.DOTALL)
-            if m:
-                data = _json.loads(m.group())
-                return int(data.get("score", 50)), str(data.get("feedback", "评分完成"))
-    except Exception:
-        pass
+            parsed = _parse_score_response(text)
+            if parsed:
+                return parsed
+            print(f"[AI评分] Gemini 返回内容无法解析: {text[:200]}")
+        else:
+            print(f"[AI评分] Gemini API 错误: status={resp.status_code}")
+    except Exception as e:
+        print(f"[AI评分] Gemini API 异常: {e}")
     return None
 
 
@@ -199,13 +257,14 @@ def _try_openai_score(question: str, reference: str, user_answer: str) -> tuple[
         if resp.status_code == 200:
             result = resp.json()
             text = result["choices"][0]["message"]["content"]
-            import json as _json
-            m = re.search(r'\{.*\}', text, re.DOTALL)
-            if m:
-                data = _json.loads(m.group())
-                return int(data.get("score", 50)), str(data.get("feedback", "评分完成"))
-    except Exception:
-        pass
+            parsed = _parse_score_response(text)
+            if parsed:
+                return parsed
+            print(f"[AI评分] OpenAI 返回内容无法解析: {text[:200]}")
+        else:
+            print(f"[AI评分] OpenAI API 错误: status={resp.status_code}")
+    except Exception as e:
+        print(f"[AI评分] OpenAI API 异常: {e}")
     return None
 
 

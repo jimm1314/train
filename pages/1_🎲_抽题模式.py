@@ -4,6 +4,7 @@
 """
 import streamlit as st
 import random
+import pandas as pd
 from utils.session_state import init_session_state
 from utils.styles import inject_global_styles
 from utils.data_loader import get_filtered_questions, get_knowledge_categories
@@ -14,7 +15,10 @@ from components.question_card import render_question_card
 from components.metrics import render_metric_row
 
 # 初始化
-st.set_page_config(page_title="抽题模式", page_icon="🎲", layout="wide")
+try:
+    st.set_page_config(page_title="抽题模式", page_icon="🎲", layout="wide")
+except Exception:
+    pass
 check_auth()
 init_session_state()
 inject_global_styles()
@@ -159,7 +163,6 @@ if st.session_state.drawn_questions:
         else:
             row_data = {"问题": q, "参考": ans}
 
-        import pandas as pd
         row = pd.Series(row_data)
 
         render_question_card(

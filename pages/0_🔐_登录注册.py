@@ -6,7 +6,10 @@ import streamlit as st
 from utils.auth import init_db, login_user, register_user, is_authenticated
 
 # 页面配置
-st.set_page_config(page_title="登录注册", page_icon="🔐", layout="centered")
+try:
+    st.set_page_config(page_title="登录注册", page_icon="🔐", layout="centered")
+except Exception:
+    pass
 
 # 初始化数据库
 init_db()
